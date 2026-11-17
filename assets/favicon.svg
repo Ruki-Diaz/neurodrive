@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#01010D"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14.5" stroke="#6331FB" stroke-opacity="0.6" stroke-width="3"/>
+  <!-- Sensor rays -->
+  <path d="M32 34L12 10" stroke="#88F9C0" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"/>
+  <path d="M32 34L22 7" stroke="#88F9C0" stroke-opacity="0.7" stroke-width="2" stroke-linecap="round"/>
+  <path d="M32 34L32 5" stroke="#88F9C0" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 34L42 7" stroke="#88F9C0" stroke-opacity="0.7" stroke-width="2" stroke-linecap="round"/>
+  <path d="M32 34L52 10" stroke="#88F9C0" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"/>
+  <!-- Neural nodes -->
+  <circle cx="32" cy="5" r="3" fill="#88F9C0"/>
+  <circle cx="22" cy="7" r="2.5" fill="#6331FB"/>
+  <circle cx="42" cy="7" r="2.5" fill="#6331FB"/>
+  <!-- Stylized autonomous car body -->
+  <rect x="22" y="24" width="20" height="32" rx="7" fill="#6331FB"/>
+  <rect x="24.5" y="28" width="15" height="9" rx="3.5" fill="#01010D"/>
+  <rect x="25.5" y="45" width="13" height="6" rx="2.5" fill="#01010D" fill-opacity="0.65"/>
+  <!-- Mint headlights / AI core -->
+  <rect x="24" y="23" width="5" height="2.5" rx="1.25" fill="#88F9C0"/>
+  <rect x="35" y="23" width="5" height="2.5" rx="1.25" fill="#88F9C0"/>
+  <circle cx="32" cy="39.5" r="3" fill="#88F9C0"/>
+</svg>

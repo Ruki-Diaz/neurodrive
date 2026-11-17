@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroDrive — Teach Cars to Drive Without Limits</title>
+  <meta name="description" content="Self-driving cars that learn in your browser through ray-cast sensors, feed-forward neural networks, and genetic evolution. Zero libraries, 100% free." />
+  <meta name="theme-color" content="#01010D" />
+
+  <!-- Open Graph / Social Meta -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="NeuroDrive — Teach Cars to Drive Without Limits" />
+  <meta property="og:description" content="Watch 100 autonomous cars evolve real-time neural networks in the browser. Zero external libraries, pure HTML5 Canvas & JavaScript." />
+  <meta property="og:image" content="assets/og-image.svg" />
+  <meta property="og:image:type" content="image/svg+xml" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NeuroDrive — Teach Cars to Drive Without Limits" />
+  <meta name="twitter:description" content="Self-driving cars that learn in the browser via neuroevolution. 100 cars, 0 libraries, 100% free." />
+  <meta name="twitter:image" content="assets/og-image.svg" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+  <!-- Google Fonts: Anton, Instrument Serif (italic), Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#workspace" class="skip-link">Skip to simulation workspace</a>
+
+  <!-- Ambient Indigo Glows & Film Grain Overlay -->
+  <div class="ambient-glow" aria-hidden="true"></div>
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Navigation -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#" class="brand" aria-label="NeuroDrive Home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="22" height="22" fill="none">
+            <path d="M16 18L7 6M16 18L16 4M16 18L25 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <rect x="11" y="13" width="10" height="15" rx="4" fill="#6331FB" stroke="#88F9C0" stroke-width="1.5"/>
+            <circle cx="16" cy="4" r="2" fill="#88F9C0"/>
+          </svg>
+        </span>
+        <span class="brand-name">NEURO<span class="brand-accent">DRIVE</span></span>
+      </a>
+
+      <nav class="header-nav" aria-label="Primary">
+        <a href="#workspace" class="nav-link">Simulator</a>
+        <a href="#how-it-works" class="nav-link">Architecture</a>
+      </nav>
+
+      <div class="header-meta">
+        <div class="shortcut-pills" aria-label="Keyboard shortcuts">
+          <span class="kbd-hint"><kbd>Space</kbd> Pause</span>
+          <span class="kbd-hint"><kbd>R</kbd> Reset</span>
+          <span class="kbd-hint"><kbd>S</kbd> Save</span>
+        </div>
+        <span id="engine-status-pill" class="status-pill">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="engine-status-label">Live Engine</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero" aria-labelledby="hero-headline">
+      <div class="container hero-inner">
+        <div class="hero-eyebrow fade-up">
+          <span class="eyebrow-dot" aria-hidden="true"></span>
+          <span>REAL-TIME NEUROEVOLUTION LAB</span>
+        </div>
+
+        <h1 id="hero-headline" class="hero-title fade-up">
+          TEACH CARS TO DRIVE
+          <span class="hero-serif">without limits</span>
+        </h1>
+
+        <p class="hero-subtitle fade-up">
+          Watch a population of autonomous vehicles master highway traffic from scratch. Powered by 5-ray proximity sensors, a feed-forward neural network, and genetic mutation right in your browser.
+        </p>
+
+        <div class="hero-actions fade-up">
+          <a href="#workspace" id="hero-cta" class="btn-cta">
+            <span>Start training</span>
+            <span class="cta-arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+
+        <ul class="hero-chips fade-up" aria-label="Key highlights">
+          <li class="chip">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span>100 cars</span>
+          </li>
+          <li class="chip">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span>0 libraries</span>
+          </li>
+          <li class="chip">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span>100% free</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- App / Simulation Section -->
+    <section id="workspace" class="workspace-section" aria-label="NeuroDrive Simulation Workspace">
+      <div class="container">
+        <!-- Telemetry Stat Row -->
+        <div class="stats-grid fade-up">
+          <!-- Generation Card -->
+          <article class="glass-card stat-card" aria-label="Current generation">
+            <div class="stat-header">
+              <span class="stat-label">Generation</span>
+              <span class="stat-tag">EVOLUTION</span>
+            </div>
+            <div class="stat-value-row">
+              <span id="stat-generation" class="stat-number" aria-live="polite">1</span>
+            </div>
+            <p class="stat-foot" id="stat-gen-note">Mutating top neural weights</p>
+          </article>
+
+          <!-- Alive Card -->
+          <article class="glass-card stat-card" aria-label="Active cars">
+            <div class="stat-header">
+              <span class="stat-label">Alive</span>
+              <span class="stat-tag" id="stat-alive-pct">100%</span>
+            </div>
+            <div class="stat-value-row">
+              <span id="stat-alive" class="stat-number" aria-live="polite">100</span>
+              <span class="stat-denom">/ <span id="stat-population">100</span></span>
+            </div>
+            <div class="stat-progress" aria-hidden="true">
+              <div id="alive-progress-bar" class="stat-progress-fill"></div>
+            </div>
+          </article>
+
+          <!-- Best Distance Card -->
+          <article class="glass-card stat-card" aria-label="Best distance">
+            <div class="stat-header">
+              <span class="stat-label">Best distance</span>
+              <span class="stat-tag stat-tag-mint">FITNESS</span>
+            </div>
+            <div class="stat-value-row">
+              <span id="stat-distance" class="stat-number stat-number-mint" aria-live="polite">0</span>
+              <span class="stat-unit">px</span>
+            </div>
+            <p class="stat-foot" id="stat-peak-note">All-time peak: 0 px</p>
+          </article>
+
+          <!-- Sparkline History Card -->
+          <article class="glass-card stat-card spark-card" aria-label="Fitness history across generations">
+            <div class="stat-header">
+              <span class="stat-label">Fitness trajectory</span>
+              <span class="stat-tag" id="spark-Summary">GEN HISTORY</span>
+            </div>
+            <div class="spark-wrap">
+              <canvas id="spark" width="280" height="64" aria-label="Sparkline chart of generation best distances"></canvas>
+            </div>
+          </article>
+        </div>
+
+        <!-- Main Simulator Split Grid -->
+        <div class="sim-layout">
+          <!-- Left: Road Canvas Card -->
+          <div class="glass-card road-card fade-up">
+            <div class="card-bar">
+              <div class="card-title-group">
+                <span id="sim-indicator" class="pulse-dot" aria-hidden="true"></span>
+                <h2 class="card-title">Highway Telemetry</h2>
+              </div>
+              <div class="card-badges">
+                <span class="mini-badge"><span id="badge-lanes">3</span> Lanes</span>
+                <span class="mini-badge">Best: <strong class="mint-text">Mint</strong></span>
+              </div>
+            </div>
+
+            <div class="road-stage">
+              <canvas id="road" width="440" height="640" aria-label="Self-driving cars highway simulation"></canvas>
+            </div>
+
+            <div class="card-footer-bar">
+              <span class="legend-item"><span class="swatch swatch-mint"></span>Leader + 5 Sensors</span>
+              <span class="legend-item"><span class="swatch swatch-indigo"></span>Population (α 0.25)</span>
+              <span class="legend-item"><span class="swatch swatch-white"></span>Traffic Drones</span>
+            </div>
+          </div>
+
+          <!-- Right: Network Visualizer + Control Panel -->
+          <div class="side-column">
+            <!-- Network Visualizer Card -->
+            <section class="glass-card network-card fade-up" aria-labelledby="network-heading">
+              <div class="card-bar">
+                <div class="card-title-group">
+                  <h2 id="network-heading" class="card-title">Live Neural Network</h2>
+                  <span class="topology-pill">5 → 6 → 4 · tanh</span>
+                </div>
+                <div class="net-legend" aria-label="Synapse weight polarity">
+                  <span class="net-key"><i class="dot-mint"></i>+ Weight</span>
+                  <span class="net-key"><i class="dot-indigo"></i>− Weight</span>
+                </div>
+              </div>
+
+              <div class="network-stage">
+                <canvas id="network" width="520" height="250" aria-label="Real-time neural network visualizer"></canvas>
+              </div>
+
+              <div class="network-io-labels" aria-hidden="true">
+                <span>Inputs: 5 Sensor Rays (0..1)</span>
+                <span>Outputs: ↑ ← → ↓</span>
+              </div>
+            </section>
+
+            <!-- Control Panel Card -->
+            <section class="glass-card controls-card fade-up" aria-labelledby="controls-heading">
+              <div class="card-bar">
+                <div class="card-title-group">
+                  <h2 id="controls-heading" class="card-title">Evolution Controls</h2>
+                </div>
+                <span id="toast-feedback" class="toast-pill" role="status" aria-live="polite">Ready</span>
+              </div>
+
+              <!-- Primary Simulation Actions -->
+              <div class="action-group" role="group" aria-label="Simulation playback and brain storage">
+                <div class="primary-buttons">
+                  <button type="button" id="btn-start-pause" class="pill-btn pill-btn-mint" aria-pressed="false">
+                    <span id="btn-start-pause-icon" aria-hidden="true">❚❚</span>
+                    <span id="btn-start-pause-text">Pause</span>
+                  </button>
+                  <button type="button" id="btn-reset" class="pill-btn pill-btn-secondary" title="Shortcut: R">
+                    <span aria-hidden="true">↺</span>
+                    <span>Reset</span>
+                  </button>
+                </div>
+
+                <div class="brain-buttons">
+                  <button type="button" id="btn-save" class="pill-btn pill-btn-ghost" title="Save best brain to localStorage (Shortcut: S)">
+                    <span>Save brain</span>
+                  </button>
+                  <button type="button" id="btn-load" class="pill-btn pill-btn-ghost" title="Load saved brain from localStorage">
+                    <span>Load brain</span>
+                  </button>
+                  <button type="button" id="btn-discard" class="pill-btn pill-btn-ghost pill-btn-danger" title="Clear saved brain from localStorage">
+                    <span>Discard</span>
+                  </button>
+                </div>
+              </div>
+
+              <hr class="control-divider" />
+
+              <!-- Sliders: Mutation & Traffic -->
+              <div class="sliders-stack">
+                <div class="control-row">
+                  <div class="control-label-line">
+                    <label for="slider-mutation" class="control-label">Mutation Rate</label>
+                    <output id="val-mutation" for="slider-mutation" class="control-readout">10%</output>
+                  </div>
+                  <input
+                    type="range"
+                    id="slider-mutation"
+                    class="mint-slider"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.1"
+                  />
+                  <div class="slider-captions" aria-hidden="true">
+                    <span>0% (Clone best)</span>
+                    <span>50% (Explore)</span>
+                    <span>100% (Chaos)</span>
+                  </div>
+                </div>
+
+                <div class="control-row">
+                  <div class="control-label-line">
+                    <label for="slider-traffic" class="control-label">Traffic Density</label>
+                    <output id="val-traffic" for="slider-traffic" class="control-readout">60%</output>
+                  </div>
+                  <input
+                    type="range"
+                    id="slider-traffic"
+                    class="mint-slider"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.6"
+                  />
+                  <div class="slider-captions" aria-hidden="true">
+                    <span>Empty road</span>
+                    <span>Moderate</span>
+                    <span>Rush hour</span>
+                  </div>
+                </div>
+              </div>
+
+              <hr class="control-divider" />
+
+              <!-- Segmented Controls: Population & Lanes -->
+              <div class="segmented-grid">
+                <div class="control-row">
+                  <span class="control-label" id="label-population">Population</span>
+                  <div class="segmented-control" role="radiogroup" aria-labelledby="label-population">
+                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-population="50">50</button>
+                    <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-population="100">100</button>
+                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-population="200">200</button>
+                  </div>
+                </div>
+
+                <div class="control-row">
+                  <span class="control-label" id="label-lanes">Road Lanes</span>
+                  <div class="segmented-control" role="radiogroup" aria-labelledby="label-lanes">
+                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-lanes="2">2</button>
+                    <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-lanes="3">3</button>
+                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-lanes="4">4</button>
+                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-lanes="5">5</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture / How It Works Section -->
+    <section id="how-it-works" class="architecture-section" aria-labelledby="arch-heading">
+      <div class="container">
+        <div class="section-head fade-up">
+          <span class="section-kicker">ZERO BLACK BOXES</span>
+          <h2 id="arch-heading" class="section-title">
+            HOW EVOLUTION <span class="serif-mint">drives</span>
+          </h2>
+        </div>
+
+        <div class="arch-grid">
+          <article class="glass-card arch-card fade-up">
+            <span class="arch-step">01</span>
+            <h3 class="arch-card-title">5-Ray Lidar Perception</h3>
+            <p class="arch-card-body">
+              Each vehicle casts 5 forward sensor rays across a fan angle, computing exact line-segment intersections against highway borders and traffic obstacles to return normalized proximity values from <code>0</code> to <code>1</code>.
+            </p>
+          </article>
+
+          <article class="glass-card arch-card fade-up">
+            <span class="arch-step">02</span>
+            <h3 class="arch-card-title">[5, 6, 4] Neural Brain</h3>
+            <p class="arch-card-body">
+              Sensor readings feed directly into a 3-layer feed-forward network with <code>tanh</code> activations. Four output neurons actuate throttle, left steering, right steering, and reverse in real time.
+            </p>
+          </article>
+
+          <article class="glass-card arch-card fade-up">
+            <span class="arch-step">03</span>
+            <h3 class="arch-card-title">Genetic Mutation</h3>
+            <p class="arch-card-body">
+              When a generation crashes, the furthest-traveling car is crowned leader. Its weights and biases are cloned into the next cohort and perturbed by your chosen mutation rate.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="footer-dot" aria-hidden="true"></span>
+        <span>NeuroDrive · Pure Vanilla JS Neuroevolution</span>
+      </div>
+      <p class="footer-credit">
+        Built by Rukshan ·
+        <a href="https://github.com/Ruki-Diaz" target="_blank" rel="noopener noreferrer" class="footer-link">
+          github.com/Ruki-Diaz ↗
+        </a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Engine entry point (if present) + UI controller -->
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/ui.js"></script>
+</body>
+</html>
