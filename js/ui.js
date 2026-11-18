@@ -1,72 +1,268 @@
-// NeuroDrive UI Controller (Antigravity)
-// Consumes window.NeuroDrive per SPEC.md without importing engine modules.
+// NeuroDrive v2 — Melbourne CBD UI, HUD, Scenario Picker & Sparkline Controller (Antigravity)
+// Consumes window.NeuroDrive per SPEC.md (v2) without importing engine files.
+// Feature-detects window.NeuroDrive and falls back to a Melbourne CBD mock world if engine is absent.
 
-const REDUCED_MOTIONQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const REDUCED_MOTION_QUERY = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function prefersReducedMotion() {
-  return REDUCED_MOTIONQuery.matches;
+  return REDUCED_MOTION_QUERY.matches;
 }
 
+const DEFAULT_SCENARIOS = [
+  {
+    id: 1,
+    name: 'Swanston St Sprint',
+    description: 'Straight 1-block run north along Swanston Street.',
+    difficulty: 'Easy',
+  },
+  {
+    id: 2,
+    name: 'Collins Intersection Turn',
+    description: 'Single Hoddle Grid turn from Swanston onto Collins St.',
+    difficulty: 'Medium',
+  },
+  {
+    id: 3,
+    name: 'Flinders to Queen Vic Market',
+    description: 'Multi-turn A* route from Flinders St Station to QVM.',
+    difficulty: 'Hard',
+  },
+  {
+    id: 4,
+    name: 'Peak Hour & Signals',
+    description: 'Flinders St to QVM with active traffic and signal cycles.',
+    difficulty: 'Expert',
+  },
+  {
+    id: 5,
+    name: 'Grand Melbourne CBD Loop',
+    description: 'Full Hoddle Grid circuit including one-way Little streets.',
+    difficulty: 'Master',
+  },
+];
+
+const MOCK_SCENARIO_ROUTES = {
+  1: {
+    destination: { name: 'Bourke St Mall', x: 0, y: -40 },
+    route: [[0, 420], [0, 300], [0, 180], [0, 60], [0, -40]],
+    street: 'Swanston Street',
+    limitKmh: 40,
+  },
+  2: {
+    destination: { name: 'Collins & Elizabeth', x: -220, y: 180 },
+    route: [[0, 420], [0, 300], [0, 180], [-110, 180], [-220, 180]],
+    street: 'Collins Street',
+    limitKmh: 40,
+  },
+  3: {
+    destination: { name: 'Queen Victoria Market', x: -340, y: -455 },
+    route: [[0, 420], [0, 180], [0, -40], [0, -220], [-220, -220], [-220, -390], [-340, -455]],
+    street: 'Elizabeth Street',
+    limitKmh: 40,
+  },
+  4: {
+    destination: { name: 'Queen Victoria Market', x: -340, y: -455 },
+    route: [[0, 420], [0, 180], [-220, 180], [-220, -40], [-220, -220], [-220, -390], [-340, -455]],
+    street: 'Swanston Street',
+    limitKmh: 40,
+  },
+  5: {
+    destination: { name: 'Flinders Street Station', x: 0, y: 420 },
+    route: [[0, 420], [220, 420], [220, -220], [-220, -220], [-220, 420], [0, 420]],
+    street: 'Russell Street',
+    limitKmh: 40,
+  },
+};
+
 /**
- * Fallback mock implementation of window.NeuroDrive (10 updates/sec)
- * Used only when the engine (js/main.js) has not attached window.NeuroDrive.
+ * Fallback mock implementation of window.NeuroDrive (v2 Melbourne CBD contract)
+ * Used only when js/main.js has not attached window.NeuroDrive.
  */
 function createMockNeuroDrive() {
   const listeners = {
     stats: new Set(),
     generation: new Set(),
     brain: new Set(),
+    scenario: new Set(),
   };
+
+  const mockWorld =
+    window.MapView && typeof window.MapView.createMockMelbourneWorld === 'function'
+      ? window.MapView.createMockMelbourneWorld()
+      : null;
+
+  if (window.MapView && mockWorld && !window.MapView.world) {
+    window.MapView.init(mockWorld);
+  }
+
+  let viewMode = 'follow';
+  let cameraZoom = 1.65;
 
   const state = {
     generation: 1,
     alive: 100,
     population: 100,
     bestDistance: 0,
-    history: [180, 340, 520, 790],
+    history: [145, 290, 460, 620],
     paused: false,
     mutation: 0.1,
-    lanes: 3,
-    traffic: 0.6,
+    traffic: 0.5,
+    signalsOn: true,
+    scenarioId: 1,
+    success: 0.38,
+    car: {
+      x: 0,
+      y: 420,
+      headingDeg: -90,
+      speedKmh: 36,
+      street: 'Swanston Street',
+      limitKmh: 40,
+      routeProgress: 0,
+    },
+    route: MOCK_SCENARIO_ROUTES[1].route,
+    destination: MOCK_SCENARIO_ROUTES[1].destination,
+    scenarios: DEFAULT_SCENARIOS,
   };
 
-  function emit(event, detail) {
-    const group = listeners[event];
-    if (!group) return;
-    group.forEach((fn) => {
+  function emit(event, payload) {
+    const set = listeners[event];
+    if (!set) return;
+    set.forEach((fn) => {
       try {
-        fn(detail !== undefined ? detail : state);
+        fn(payload !== undefined ? payload : state);
       } catch (err) {
-        console.error(`[NeuroDrive Mock] Error in ${event} listener:`, err);
+        console.error(`[NeuroDrive Mock] Listener error (${event}):`, err);
       }
     });
   }
 
-  let tickCount = 0;
+  function applyScenario(id) {
+    const numId = Number(id) || 1;
+    const cfg = MOCK_SCENARIO_ROUTES[numId] || MOCK_SCENARIO_ROUTES[1];
+    state.scenarioId = numId;
+    state.route = cfg.route;
+    state.destination = cfg.destination;
+    state.car.x = cfg.route[0][0];
+    state.car.y = cfg.route[0][1];
+    state.car.street = cfg.street;
+    state.car.limitKmh = cfg.limitKmh;
+    state.car.routeProgress = 0;
+    state.bestDistance = 0;
+    emit('scenario', { id: numId });
+    emit('stats', state);
+  }
+
+  // 10/s telemetry updater
+  let progressT = 0;
   setInterval(() => {
     if (state.paused) return;
-    tickCount += 1;
+    progressT += 0.025;
 
-    const gain = Math.round(14 + Math.random() * 24 * (1 + state.generation * 0.08));
-    state.bestDistance += gain;
-
-    if (tickCount % 3 === 0 && state.alive > 1) {
-      const drop = Math.max(1, Math.round(Math.random() * 4 * (0.4 + state.traffic)));
-      state.alive = Math.max(0, state.alive - drop);
+    const pts = state.route;
+    if (pts && pts.length >= 2) {
+      const segCount = pts.length - 1;
+      const scaled = Math.min(segCount - 0.001, (progressT % 1) * segCount);
+      const idx = Math.floor(scaled);
+      const frac = scaled - idx;
+      const p0 = pts[idx];
+      const p1 = pts[idx + 1];
+      state.car.x = p0[0] + (p1[0] - p0[0]) * frac;
+      state.car.y = p0[1] + (p1[1] - p0[1]) * frac;
+      state.car.headingDeg = (Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180) / Math.PI;
+      state.car.routeProgress = Math.min(1, progressT % 1);
+      state.car.speedKmh = Math.round(31 + Math.sin(progressT * 6) * 7);
+      state.bestDistance = Math.round(state.car.routeProgress * 680);
     }
 
-    if (state.alive <= 0 || tickCount >= 90) {
-      state.history.push(Math.round(state.bestDistance));
+    if (progressT >= 1) {
+      progressT = 0;
+      state.history.push(state.bestDistance);
       if (state.history.length > 40) state.history.shift();
       state.generation += 1;
+      state.success = Math.min(0.95, +(0.25 + state.generation * 0.06).toFixed(2));
       state.alive = state.population;
-      state.bestDistance = 0;
-      tickCount = 0;
-      emit('generation', state);
+      emit('generation', {
+        generation: state.generation,
+        best: state.bestDistance,
+        success: state.success,
+        history: state.history,
+      });
+    } else if (state.alive > 12) {
+      state.alive = Math.max(12, state.alive - (Math.random() < 0.35 ? 1 : 0));
     }
 
     emit('stats', state);
   }, 100);
+
+  // Mock 60 fps canvas loop on #road if engine is absent
+  const roadCanvas = document.getElementById('road');
+  if (roadCanvas && window.MapView) {
+    const ctx = roadCanvas.getContext('2d');
+    function renderMockFrame() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = roadCanvas.getBoundingClientRect();
+      const w = Math.max(300, Math.floor(rect.width || roadCanvas.width || 760));
+      const h = Math.max(300, Math.floor(rect.height || roadCanvas.height || 640));
+      if (roadCanvas.width !== w * dpr || roadCanvas.height !== h * dpr) {
+        roadCanvas.width = w * dpr;
+        roadCanvas.height = h * dpr;
+      }
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cam = {
+        x: viewMode === 'overview' ? 0 : state.car.x,
+        y: viewMode === 'overview' ? 0 : state.car.y,
+        zoom: viewMode === 'overview' ? 0.52 : cameraZoom,
+        rotation: 0,
+        w,
+        h,
+      };
+
+      window.MapView.drawBase(ctx, cam);
+
+      // Draw Best Car in Mint
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.5);
+      ctx.scale(cam.zoom, cam.zoom);
+      ctx.translate(-cam.x, -cam.y);
+
+      ctx.save();
+      ctx.translate(state.car.x, state.car.y);
+      ctx.rotate((state.car.headingDeg * Math.PI) / 180);
+      ctx.fillStyle = '#88F9C0';
+      ctx.shadowColor = '#88F9C0';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.roundRect(-2.4, -1.1, 4.8, 2.2, 0.6);
+      ctx.fill();
+      ctx.restore();
+      ctx.restore();
+
+      const mockSignals = ((mockWorld && mockWorld.signals) || []).map((s, idx) => ({
+        x: s.x,
+        y: s.y,
+        state: !state.signalsOn
+          ? 'green'
+          : idx % 3 === 0
+            ? 'green'
+            : idx % 3 === 1
+              ? 'amber'
+              : 'red',
+      }));
+
+      window.MapView.drawOverlay(ctx, cam, {
+        route: state.route,
+        destination: state.destination,
+        signals: mockSignals,
+      });
+
+      ctx.restore();
+      requestAnimationFrame(renderMockFrame);
+    }
+    requestAnimationFrame(renderMockFrame);
+  }
 
   return {
     __isMock: true,
@@ -90,56 +286,66 @@ function createMockNeuroDrive() {
         state.alive = state.population;
         state.bestDistance = 0;
         state.history = [];
-        tickCount = 0;
-        emit('generation', state);
+        progressT = 0;
         emit('stats', state);
       },
       saveBrain() {
         try {
           localStorage.setItem(
-            'neurodrive.brain',
+            'neurodrive.brain.v2',
             JSON.stringify({ savedAt: Date.now(), generation: state.generation })
           );
         } catch (_) {
           // ignore storage quota errors
         }
-        emit('brain', { action: 'saved' });
+        emit('brain', { action: 'saved', ok: true });
       },
       loadBrain() {
-        emit('brain', { action: 'loaded' });
+        emit('brain', { action: 'loaded', ok: true });
       },
       discardBrain() {
         try {
-          localStorage.removeItem('neurodrive.brain');
+          localStorage.removeItem('neurodrive.brain.v2');
         } catch (_) {
-          // ignore storage errors
+          // ignore
         }
-        emit('brain', { action: 'discarded' });
+        emit('brain', { action: 'discarded', ok: true });
       },
       setMutation(val) {
         state.mutation = Math.max(0, Math.min(1, Number(val) || 0));
         emit('stats', state);
       },
       setPopulation(n) {
-        const pop = Number(n) || 100;
-        state.population = pop;
-        state.alive = Math.min(state.alive, pop);
+        state.population = Number(n) || 100;
+        state.alive = Math.min(state.alive, state.population);
         emit('stats', state);
       },
-      setLanes(lanes) {
-        state.lanes = Math.max(2, Math.min(5, Number(lanes) || 3));
+      setTraffic(val) {
+        state.traffic = Math.max(0, Math.min(1, Number(val) || 0));
         emit('stats', state);
       },
-      setTraffic(density) {
-        state.traffic = Math.max(0, Math.min(1, Number(density) || 0));
+      setSignals(bool) {
+        state.signalsOn = Boolean(bool);
         emit('stats', state);
+      },
+      setScenario(id) {
+        applyScenario(id);
+      },
+      setView(mode) {
+        viewMode = mode === 'overview' ? 'overview' : 'follow';
+        emit('stats', state);
+      },
+      zoom(delta) {
+        const d = Number(delta) || 0;
+        const factor = d > 0 ? 1.22 : 0.82;
+        cameraZoom = Math.max(0.35, Math.min(6, cameraZoom * factor));
       },
     },
   };
 }
 
 /**
- * Setup IntersectionObserver for .fade-up entrance animations
+ * IntersectionObserver fade-up entrance animations
  */
 function initScrollReveal() {
   const elements = document.querySelectorAll('.fade-up');
@@ -161,14 +367,14 @@ function initScrollReveal() {
         }
       });
     },
-    { threshold: 0.12, rootMargin: '0px 0px -30px 0px' }
+    { threshold: 0.1, rootMargin: '0px 0px -24px 0px' }
   );
 
   elements.forEach((el) => observer.observe(el));
 }
 
 /**
- * Draw the fitness history sparkline onto <canvas id="spark">
+ * Sparkline renderer on <canvas id="spark"> (distances in metres)
  */
 function createSparklineRenderer(canvas) {
   if (!canvas) return () => {};
@@ -177,7 +383,6 @@ function createSparklineRenderer(canvas) {
   function getPalette() {
     const styles = getComputedStyle(document.documentElement);
     return {
-      onyx: styles.getPropertyValue('--onyx').trim() || '#01010D',
       indigo: styles.getPropertyValue('--indigo').trim() || '#6331FB',
       mint: styles.getPropertyValue('--mint').trim() || '#88F9C0',
     };
@@ -186,8 +391,8 @@ function createSparklineRenderer(canvas) {
   return function renderSparkline(history = [], currentDistance = 0) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const rect = canvas.getBoundingClientRect();
-    const width = Math.max(160, Math.floor(rect.width || canvas.width || 280));
-    const height = Math.max(44, Math.floor(rect.height || canvas.height || 64));
+    const width = Math.max(150, Math.floor(rect.width || canvas.width || 260));
+    const height = Math.max(44, Math.floor(rect.height || canvas.height || 60));
 
     if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
       canvas.width = width * dpr;
@@ -199,19 +404,17 @@ function createSparklineRenderer(canvas) {
     ctx.clearRect(0, 0, width, height);
 
     const { indigo, mint } = getPalette();
-
-    // Build series from history + live bestDistance
     const series = Array.isArray(history) ? history.filter((n) => Number.isFinite(n)) : [];
-    const points = series.length >= 2
-      ? [...series]
-      : [0, ...(series.length === 1 ? series : []), Math.max(0, Number(currentDistance) || 0)];
+    const points =
+      series.length >= 2
+        ? [...series]
+        : [0, ...(series.length === 1 ? series : []), Math.max(0, Number(currentDistance) || 0)];
 
-    const padX = 8;
-    const padY = 10;
+    const padX = 7;
+    const padY = 9;
     const plotW = width - padX * 2;
     const plotH = height - padY * 2;
 
-    // Subtle baseline grid
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -220,7 +423,7 @@ function createSparklineRenderer(canvas) {
     ctx.stroke();
 
     const minVal = Math.min(0, ...points);
-    const maxVal = Math.max(100, ...points);
+    const maxVal = Math.max(50, ...points);
     const range = Math.max(1, maxVal - minVal);
 
     const coords = points.map((val, idx) => {
@@ -230,7 +433,6 @@ function createSparklineRenderer(canvas) {
       return { x, y };
     });
 
-    // Area gradient fill under sparkline
     const grad = ctx.createLinearGradient(0, padY, 0, height - padY);
     grad.addColorStop(0, 'rgba(136, 249, 192, 0.36)');
     grad.addColorStop(0.65, 'rgba(99, 49, 251, 0.16)');
@@ -244,7 +446,6 @@ function createSparklineRenderer(canvas) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Smooth stroke
     const strokeGrad = ctx.createLinearGradient(padX, 0, width - padX, 0);
     strokeGrad.addColorStop(0, indigo);
     strokeGrad.addColorStop(1, mint);
@@ -255,18 +456,17 @@ function createSparklineRenderer(canvas) {
       else ctx.lineTo(pt.x, pt.y);
     });
     ctx.strokeStyle = strokeGrad;
-    ctx.lineWidth = 2.25;
+    ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    // Glowing terminal dot on latest point
     const last = coords[coords.length - 1];
     ctx.beginPath();
-    ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
+    ctx.arc(last.x, last.y, 3.2, 0, Math.PI * 2);
     ctx.fillStyle = mint;
     ctx.shadowColor = mint;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 9;
     ctx.fill();
 
     ctx.restore();
@@ -274,14 +474,18 @@ function createSparklineRenderer(canvas) {
 }
 
 /**
- * Wire UI controls, animated counters, sparkline, and keyboard shortcuts
+ * Initialize NeuroDrive v2 UI
  */
 function initNeuroDriveUI() {
   initScrollReveal();
 
+  if (window.Minimap && typeof window.Minimap.init === 'function') {
+    window.Minimap.init();
+  }
+
   const api = window.NeuroDrive || (window.NeuroDrive = createMockNeuroDrive());
 
-  // DOM References
+  // Stat Card Elements
   const elGen = document.getElementById('stat-generation');
   const elAlive = document.getElementById('stat-alive');
   const elPop = document.getElementById('stat-population');
@@ -289,12 +493,31 @@ function initNeuroDriveUI() {
   const elAliveBar = document.getElementById('alive-progress-bar');
   const elDist = document.getElementById('stat-distance');
   const elPeakNote = document.getElementById('stat-peak-note');
+  const elSuccess = document.getElementById('stat-success');
+  const elSuccessRing = document.getElementById('success-ring-circle');
   const elSparkSummary = document.getElementById('spark-Summary');
   const elEngineLabel = document.getElementById('engine-status-label');
   const elSimIndicator = document.getElementById('sim-indicator');
-  const elBadgeLanes = document.getElementById('badge-lanes');
   const elToast = document.getElementById('toast-feedback');
 
+  // HUD Overlay Elements
+  const elHudSpeed = document.getElementById('hud-speed');
+  const elHudLimit = document.getElementById('hud-limit');
+  const elHudStreet = document.getElementById('hud-street');
+  const elHudSignalDot = document.getElementById('hud-signal-dot');
+  const elHudSignalText = document.getElementById('hud-signal-text');
+  const elHudDest = document.getElementById('hud-destination');
+  const elHudRoutePct = document.getElementById('hud-route-pct');
+  const elHudRouteBar = document.getElementById('hud-route-bar');
+
+  // Minimap Collapse Toggle (responsive 375px support)
+  const elMinimapContainer = document.getElementById('minimap-container');
+  const btnMinimapToggle = document.getElementById('btn-minimap-toggle');
+
+  // Scenario Grid
+  const elScenarioGrid = document.getElementById('scenario-grid');
+
+  // Control Panel Elements
   const btnStartPause = document.getElementById('btn-start-pause');
   const btnStartPauseIcon = document.getElementById('btn-start-pause-icon');
   const btnStartPauseText = document.getElementById('btn-start-pause-text');
@@ -304,26 +527,52 @@ function initNeuroDriveUI() {
   const btnDiscard = document.getElementById('btn-discard');
   const heroCta = document.getElementById('hero-cta');
 
+  const btnToggleTraffic = document.getElementById('toggle-traffic');
+  const btnToggleSignals = document.getElementById('toggle-signals');
+  const btnToggleView = document.getElementById('toggle-view');
+  const elToggleViewLabel = document.getElementById('toggle-view-label');
+
   const sliderMutation = document.getElementById('slider-mutation');
   const valMutation = document.getElementById('val-mutation');
   const sliderTraffic = document.getElementById('slider-traffic');
   const valTraffic = document.getElementById('val-traffic');
 
   const popButtons = document.querySelectorAll('[data-population]');
-  const laneButtons = document.querySelectorAll('[data-lanes]');
+  const viewButtons = document.querySelectorAll('[data-view]');
+  const btnZoomInHud = document.getElementById('btn-zoom-in');
+  const btnZoomOutHud = document.getElementById('btn-zoom-out');
+  const btnZoomInPanel = document.getElementById('panel-zoom-in');
+  const btnZoomOutPanel = document.getElementById('panel-zoom-out');
 
   const sparkCanvas = document.getElementById('spark');
   const renderSparkline = createSparklineRenderer(sparkCanvas);
 
   if (elEngineLabel) {
-    elEngineLabel.textContent = api.__isMock ? 'Mock Telemetry (10/s)' : 'Live Engine';
+    elEngineLabel.textContent = api.__isMock ? 'Mock Melbourne Grid' : 'Live CBD Grid';
   }
 
-  // Toast status helper
+  // Collapse minimap by default on compact mobile screens (<= 540px)
+  if (elMinimapContainer && btnMinimapToggle) {
+    if (window.innerWidth <= 540) {
+      elMinimapContainer.classList.add('is-collapsed');
+      btnMinimapToggle.setAttribute('aria-expanded', 'false');
+      btnMinimapToggle.textContent = 'Map';
+    }
+    btnMinimapToggle.addEventListener('click', () => {
+      const collapsed = elMinimapContainer.classList.toggle('is-collapsed');
+      btnMinimapToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      btnMinimapToggle.textContent = collapsed ? 'Map' : 'Hide';
+      if (!collapsed && window.Minimap) {
+        window.Minimap.render(api.state);
+      }
+    });
+  }
+
+  // Toast feedback helper
   let toastTimer = null;
-  function showToast(message) {
+  function showToast(msg) {
     if (!elToast) return;
-    elToast.textContent = message;
+    elToast.textContent = msg;
     elToast.classList.add('is-highlight');
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
@@ -331,19 +580,20 @@ function initNeuroDriveUI() {
     }, 1800);
   }
 
-  // Animated Counter State
-  const counterTarget = {
-    generation: 1,
-    alive: 100,
-    bestDistance: 0,
-  };
-  const counterDisplay = {
-    generation: 1,
-    alive: 100,
-    bestDistance: 0,
-  };
+  // Animated Counters
+  const counterTarget = { generation: 1, alive: 100, bestDistance: 0 };
+  const counterDisplay = { generation: 1, alive: 100, bestDistance: 0 };
   let counterRaf = null;
-  let allTimePeak = 0;
+  let allTimePeakM = 0;
+  let activeViewMode = 'follow';
+  let lastSavedTraffic = 0.5;
+  let renderedScenarioCount = 0;
+
+  function flushCounterDOM() {
+    if (elGen) elGen.textContent = Math.round(counterDisplay.generation).toLocaleString();
+    if (elAlive) elAlive.textContent = Math.round(counterDisplay.alive).toLocaleString();
+    if (elDist) elDist.textContent = Math.round(counterDisplay.bestDistance).toLocaleString();
+  }
 
   function stepCounters() {
     if (prefersReducedMotion()) {
@@ -355,33 +605,22 @@ function initNeuroDriveUI() {
       return;
     }
 
-    let needsMore = false;
-    ['generation', 'alive', 'bestDistance'].forEach((key) => {
-      const diff = counterTarget[key] - counterDisplay[key];
-      if (Math.abs(diff) > 0.45) {
-        counterDisplay[key] += diff * 0.28;
-        needsMore = true;
+    let more = false;
+    ['generation', 'alive', 'bestDistance'].forEach((k) => {
+      const diff = counterTarget[k] - counterDisplay[k];
+      if (Math.abs(diff) > 0.4) {
+        counterDisplay[k] += diff * 0.28;
+        more = true;
       } else {
-        counterDisplay[key] = counterTarget[key];
+        counterDisplay[k] = counterTarget[k];
       }
     });
 
     flushCounterDOM();
-
-    if (needsMore) {
-      counterRaf = requestAnimationFrame(stepCounters);
-    } else {
-      counterRaf = null;
-    }
+    counterRaf = more ? requestAnimationFrame(stepCounters) : null;
   }
 
-  function flushCounterDOM() {
-    if (elGen) elGen.textContent = Math.round(counterDisplay.generation).toLocaleString();
-    if (elAlive) elAlive.textContent = Math.round(counterDisplay.alive).toLocaleString();
-    if (elDist) elDist.textContent = Math.round(counterDisplay.bestDistance).toLocaleString();
-  }
-
-  function scheduleCounterAnimation() {
+  function scheduleCounters() {
     if (prefersReducedMotion()) {
       stepCounters();
       return;
@@ -391,11 +630,71 @@ function initNeuroDriveUI() {
     }
   }
 
-  // Sync UI state from NeuroDrive.state
+  // Render Scenario Picker Cards
+  function renderScenarioPicker(scenarios, activeId) {
+    if (!elScenarioGrid) return;
+    const list = Array.isArray(scenarios) && scenarios.length ? scenarios : DEFAULT_SCENARIOS;
+
+    if (renderedScenarioCount !== list.length) {
+      elScenarioGrid.innerHTML = '';
+      list.forEach((sc, idx) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'scenario-card';
+        card.setAttribute('role', 'radio');
+        card.dataset.scenarioId = String(sc.id);
+
+        const top = document.createElement('div');
+        top.className = 'scenario-top';
+
+        const num = document.createElement('span');
+        num.className = 'scenario-num';
+        num.textContent = `0${idx + 1}`;
+
+        const chip = document.createElement('span');
+        chip.className = 'diff-chip';
+        chip.textContent = sc.difficulty || 'CBD';
+
+        top.appendChild(num);
+        top.appendChild(chip);
+
+        const name = document.createElement('div');
+        name.className = 'scenario-name';
+        name.textContent = sc.name || `Scenario ${sc.id}`;
+
+        const desc = document.createElement('div');
+        desc.className = 'scenario-desc';
+        desc.textContent = sc.description || '';
+
+        card.appendChild(top);
+        card.appendChild(name);
+        card.appendChild(desc);
+
+        card.addEventListener('click', () => {
+          api.actions?.setScenario?.(sc.id);
+          showToast(`Scenario: ${sc.name}`);
+          syncFromState(api.state);
+        });
+
+        elScenarioGrid.appendChild(card);
+      });
+      renderedScenarioCount = list.length;
+    }
+
+    const cards = elScenarioGrid.querySelectorAll('.scenario-card');
+    cards.forEach((card) => {
+      const match = String(card.dataset.scenarioId) === String(activeId);
+      card.classList.toggle('is-active', match);
+      card.setAttribute('aria-checked', match ? 'true' : 'false');
+    });
+  }
+
+  // Sync UI with NeuroDrive.state
   function syncFromState(rawState) {
-    const s = rawState && typeof rawState === 'object' && 'generation' in rawState
-      ? rawState
-      : api.state || {};
+    const s =
+      rawState && typeof rawState === 'object' && 'generation' in rawState
+        ? rawState
+        : api.state || {};
 
     const generation = Number(s.generation) || 1;
     const population = Number(s.population) || 100;
@@ -404,35 +703,85 @@ function initNeuroDriveUI() {
     const history = Array.isArray(s.history) ? s.history : [];
     const paused = Boolean(s.paused);
     const mutation = s.mutation !== undefined ? Number(s.mutation) : 0.1;
-    const lanes = Number(s.lanes) || 3;
-    const traffic = s.traffic !== undefined ? Number(s.traffic) : 0.6;
+    const traffic = s.traffic !== undefined ? Number(s.traffic) : 0.5;
+    const signalsOn = s.signalsOn !== undefined ? Boolean(s.signalsOn) : true;
+    const scenarioId = s.scenarioId !== undefined ? s.scenarioId : 1;
+    const success = Math.max(0, Math.min(1, Number(s.success) || 0));
+    const car = s.car || {};
+    const destination = s.destination || { name: 'Melbourne CBD' };
+    const scenarios = s.scenarios || DEFAULT_SCENARIOS;
 
+    // 1. Stat Counters
     counterTarget.generation = generation;
     counterTarget.alive = alive;
     counterTarget.bestDistance = bestDistance;
-    scheduleCounterAnimation();
+    scheduleCounters();
 
-    if (elPop) elPop.textContent = population.toString();
-
-    const pct = population > 0 ? Math.max(0, Math.min(100, Math.round((alive / population) * 100))) : 0;
-    if (elAlivePct) elAlivePct.textContent = `${pct}%`;
-    if (elAliveBar) elAliveBar.style.width = `${pct}%`;
+    if (elPop) elPop.textContent = String(population);
+    const alivePct = population > 0 ? Math.max(0, Math.min(100, Math.round((alive / population) * 100))) : 0;
+    if (elAlivePct) elAlivePct.textContent = `${alivePct}%`;
+    if (elAliveBar) elAliveBar.style.width = `${alivePct}%`;
 
     const histMax = history.length ? Math.max(...history) : 0;
-    allTimePeak = Math.max(allTimePeak, histMax, bestDistance);
+    allTimePeakM = Math.max(allTimePeakM, histMax, bestDistance);
     if (elPeakNote) {
-      elPeakNote.textContent = `All-time peak: ${Math.round(allTimePeak).toLocaleString()} px`;
+      elPeakNote.textContent = `All-time peak: ${Math.round(allTimePeakM).toLocaleString()} m`;
     }
 
+    // 2. Success Rate Ring (circumference = 2 * pi * 21 ≈ 131.95)
+    const successPct = Math.round(success * 100);
+    if (elSuccess) elSuccess.textContent = `${successPct}%`;
+    if (elSuccessRing) {
+      const circum = 131.95;
+      const offset = circum - (successPct / 100) * circum;
+      elSuccessRing.style.strokeDashoffset = String(offset);
+    }
+
+    // 3. Sparkline
     if (elSparkSummary) {
       elSparkSummary.textContent = history.length
         ? `${history.length} GEN${history.length === 1 ? '' : 'S'}`
         : 'LIVE';
     }
-
     renderSparkline(history, bestDistance);
 
-    // Pause / Start Button & Status Dot
+    // 4. Live HUD over #road
+    const speedKmh = Math.max(0, Math.round(Number(car.speedKmh) || 0));
+    const limitKmh = Math.max(10, Math.round(Number(car.limitKmh) || 40));
+    const streetName = car.street || 'Melbourne CBD Grid';
+    const routeProgressPct = Math.max(
+      0,
+      Math.min(100, Math.round((Number(car.routeProgress) || 0) * 100))
+    );
+
+    if (elHudSpeed) elHudSpeed.textContent = String(speedKmh);
+    if (elHudLimit) elHudLimit.textContent = String(limitKmh);
+    if (elHudStreet) elHudStreet.textContent = streetName;
+    if (elHudDest) elHudDest.textContent = destination.name || 'Destination';
+    if (elHudRoutePct) elHudRoutePct.textContent = `${routeProgressPct}%`;
+    if (elHudRouteBar) elHudRouteBar.style.width = `${routeProgressPct}%`;
+
+    if (elHudSignalDot && elHudSignalText) {
+      elHudSignalDot.className = 'signal-lamp';
+      if (!signalsOn) {
+        elHudSignalDot.classList.add('signal-amber');
+        elHudSignalText.textContent = 'Signals Off';
+      } else {
+        const nextState = car.nextSignalState || 'green';
+        elHudSignalDot.classList.add(`signal-${nextState}`);
+        elHudSignalText.textContent =
+          nextState === 'red'
+            ? 'Red Signal Ahead'
+            : nextState === 'amber'
+              ? 'Amber Signal'
+              : 'Signals Active';
+      }
+    }
+
+    // 5. Scenarios
+    renderScenarioPicker(scenarios, scenarioId);
+
+    // 6. Controls & Sliders
     if (btnStartPause && btnStartPauseText && btnStartPauseIcon) {
       btnStartPause.setAttribute('aria-pressed', paused ? 'true' : 'false');
       btnStartPauseText.textContent = paused ? 'Start' : 'Pause';
@@ -442,57 +791,81 @@ function initNeuroDriveUI() {
       elSimIndicator.classList.toggle('is-paused', paused);
     }
 
-    // Sliders (only update if user isn't actively dragging them)
     if (sliderMutation && document.activeElement !== sliderMutation) {
       sliderMutation.value = String(mutation);
     }
-    if (valMutation) {
-      valMutation.textContent = `${Math.round(mutation * 100)}%`;
-    }
+    if (valMutation) valMutation.textContent = `${Math.round(mutation * 100)}%`;
 
     if (sliderTraffic && document.activeElement !== sliderTraffic) {
       sliderTraffic.value = String(traffic);
     }
-    if (valTraffic) {
-      valTraffic.textContent = `${Math.round(traffic * 100)}%`;
+    if (valTraffic) valTraffic.textContent = `${Math.round(traffic * 100)}%`;
+
+    const trafficActive = traffic > 0.01;
+    if (btnToggleTraffic) {
+      btnToggleTraffic.classList.toggle('is-on', trafficActive);
+      btnToggleTraffic.setAttribute('aria-pressed', trafficActive ? 'true' : 'false');
     }
 
-    // Segmented controls
+    if (btnToggleSignals) {
+      btnToggleSignals.classList.toggle('is-on', signalsOn);
+      btnToggleSignals.setAttribute('aria-pressed', signalsOn ? 'true' : 'false');
+    }
+
     popButtons.forEach((btn) => {
-      const isMatch = Number(btn.dataset.population) === population;
-      btn.classList.toggle('is-active', isMatch);
-      btn.setAttribute('aria-checked', isMatch ? 'true' : 'false');
+      const match = Number(btn.dataset.population) === population;
+      btn.classList.toggle('is-active', match);
+      btn.setAttribute('aria-checked', match ? 'true' : 'false');
     });
-
-    laneButtons.forEach((btn) => {
-      const isMatch = Number(btn.dataset.lanes) === lanes;
-      btn.classList.toggle('is-active', isMatch);
-      btn.setAttribute('aria-checked', isMatch ? 'true' : 'false');
-    });
-
-    if (elBadgeLanes) {
-      elBadgeLanes.textContent = String(lanes);
-    }
   }
 
   // Subscribe to NeuroDrive events
   if (typeof api.on === 'function') {
     api.on('stats', (payload) => syncFromState(payload));
-    api.on('generation', (payload) => {
-      syncFromState(payload);
-      const gen = (payload && payload.generation) || (api.state && api.state.generation) || 1;
-      showToast(`Generation ${gen} spawned`);
+    api.on('generation', (info) => {
+      syncFromState(api.state);
+      const gen = (info && info.generation) || (api.state && api.state.generation) || 1;
+      showToast(`Generation ${gen} · Best ${Math.round((info && info.best) || 0)} m`);
     });
     api.on('brain', (info) => {
-      const label = typeof info === 'string'
-        ? info
-        : (info && (info.action || info.type || info.status)) || 'updated';
-      showToast(`Brain ${label}`);
+      const act =
+        typeof info === 'string'
+          ? info
+          : (info && (info.action || info.type)) || 'updated';
+      showToast(`Brain ${act}`);
       syncFromState(api.state);
+    });
+    api.on('scenario', (info) => {
+      syncFromState(api.state);
+      const id = (info && info.id) || (api.state && api.state.scenarioId) || 1;
+      showToast(`Scenario ${id} active`);
     });
   }
 
-  // Toggle Start / Pause helper
+  // Camera View Mode Helper
+  function setCameraView(mode) {
+    activeViewMode = mode === 'overview' ? 'overview' : 'follow';
+    api.actions?.setView?.(activeViewMode);
+
+    viewButtons.forEach((btn) => {
+      const match = btn.dataset.view === activeViewMode;
+      btn.classList.toggle('is-active', match);
+      if (btn.getAttribute('role') === 'radio') {
+        btn.setAttribute('aria-checked', match ? 'true' : 'false');
+      }
+    });
+
+    if (btnToggleView && elToggleViewLabel) {
+      const isOverview = activeViewMode === 'overview';
+      btnToggleView.classList.toggle('is-on', isOverview);
+      btnToggleView.setAttribute('aria-pressed', isOverview ? 'true' : 'false');
+      elToggleViewLabel.textContent = `View: ${isOverview ? 'Overview' : 'Follow'}`;
+    }
+
+    showToast(`Camera: ${activeViewMode === 'overview' ? 'CBD Overview' : 'Follow Leader'}`);
+  }
+
+  // Toggle Pause / Start
   function togglePause() {
     const isPaused = Boolean(api.state && api.state.paused);
     if (isPaused) {
@@ -505,11 +878,11 @@ function initNeuroDriveUI() {
     syncFromState(api.state);
   }
 
-  // Button Listeners
+  // Wire Buttons
   btnStartPause?.addEventListener('click', togglePause);
 
   btnReset?.addEventListener('click', () => {
-    allTimePeak = 0;
+    allTimePeakM = 0;
     api.actions?.reset?.();
     showToast('Simulation reset');
     syncFromState(api.state);
@@ -538,7 +911,50 @@ function initNeuroDriveUI() {
     }
   });
 
-  // Sliders
+  // Wire Toggles: Traffic, Signals, View
+  btnToggleTraffic?.addEventListener('click', () => {
+    const current = Number(api.state && api.state.traffic) || 0;
+    if (current > 0.01) {
+      lastSavedTraffic = current;
+      api.actions?.setTraffic?.(0);
+      showToast('Traffic disabled');
+    } else {
+      const restore = lastSavedTraffic > 0.05 ? lastSavedTraffic : 0.5;
+      api.actions?.setTraffic?.(restore);
+      showToast(`Traffic ${Math.round(restore * 100)}%`);
+    }
+    syncFromState(api.state);
+  });
+
+  btnToggleSignals?.addEventListener('click', () => {
+    const next = !(api.state && api.state.signalsOn);
+    api.actions?.setSignals?.(next);
+    showToast(next ? 'Traffic signals enabled' : 'Traffic signals paused');
+    syncFromState(api.state);
+  });
+
+  btnToggleView?.addEventListener('click', () => {
+    setCameraView(activeViewMode === 'follow' ? 'overview' : 'follow');
+  });
+
+  viewButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.view) {
+        setCameraView(btn.dataset.view);
+      }
+    });
+  });
+
+  // Wire Zoom +/-
+  function handleZoom(delta) {
+    api.actions?.zoom?.(delta);
+  }
+  btnZoomInHud?.addEventListener('click', () => handleZoom(1));
+  btnZoomOutHud?.addEventListener('click', () => handleZoom(-1));
+  btnZoomInPanel?.addEventListener('click', () => handleZoom(1));
+  btnZoomOutPanel?.addEventListener('click', () => handleZoom(-1));
+
+  // Wire Sliders
   sliderMutation?.addEventListener('input', (e) => {
     const val = Math.max(0, Math.min(1, parseFloat(e.target.value) || 0));
     if (valMutation) valMutation.textContent = `${Math.round(val * 100)}%`;
@@ -547,48 +963,38 @@ function initNeuroDriveUI() {
 
   sliderTraffic?.addEventListener('input', (e) => {
     const val = Math.max(0, Math.min(1, parseFloat(e.target.value) || 0));
+    if (val > 0.01) lastSavedTraffic = val;
     if (valTraffic) valTraffic.textContent = `${Math.round(val * 100)}%`;
     api.actions?.setTraffic?.(val);
+    syncFromState(api.state);
   });
 
-  // Segmented Controls: Population (50 / 100 / 200)
+  // Wire Population Segmented Control
   popButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const pop = Number(btn.dataset.population);
       if (!Number.isFinite(pop)) return;
       api.actions?.setPopulation?.(pop);
-      showToast(`Population set to ${pop}`);
+      showToast(`Population: ${pop} cars`);
       syncFromState(api.state);
     });
   });
 
-  // Segmented Controls: Lanes (2..5)
-  laneButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const lanes = Number(btn.dataset.lanes);
-      if (!Number.isFinite(lanes)) return;
-      api.actions?.setLanes?.(lanes);
-      showToast(`${lanes} lanes active`);
-      syncFromState(api.state);
-    });
-  });
-
-  // Keyboard Shortcuts: Space (pause/start), R (reset), S (save brain)
+  // Keyboard Shortcuts: Space (pause), R (reset), S (save brain), +/- (zoom)
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) {
       return;
     }
 
     if (e.code === 'Space') {
-      // Avoid double-triggering if focused on a button
       if (tag === 'button') return;
       e.preventDefault();
       togglePause();
     } else if (e.key === 'r' || e.key === 'R') {
       e.preventDefault();
-      allTimePeak = 0;
+      allTimePeakM = 0;
       api.actions?.reset?.();
       showToast('Reset (R)');
       syncFromState(api.state);
@@ -596,17 +1002,168 @@ function initNeuroDriveUI() {
       e.preventDefault();
       api.actions?.saveBrain?.();
       showToast('Brain saved (S)');
+    } else if (e.key === '+' || e.key === '=') {
+      handleZoom(1);
+    } else if (e.key === '-' || e.key === '_') {
+      handleZoom(-1);
     }
   });
 
-  // Keep sparkline crisp on viewport resize
   window.addEventListener('resize', () => {
     const s = api.state || {};
     renderSparkline(s.history || [], s.bestDistance || 0);
   });
 
-  // Initial render
+  // Initial sync
   syncFromState(api.state);
+
+  // Lazy-mount 3D machines in Hero (embed: true) and How It Works (embed: false)
+  initLazy3DMachines();
+}
+
+function isWebGLSupported() {
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function initLazy3DMachines() {
+  const heroSection = document.getElementById('hero-section');
+  const heroContainer = document.getElementById('hero-machine');
+  const howContainer = document.getElementById('how-machine');
+  const stepCards = document.querySelectorAll('[data-station-step]');
+
+  function hideHeroMachine() {
+    if (heroSection) heroSection.classList.add('machine-hidden');
+    if (heroContainer) heroContainer.innerHTML = '';
+  }
+
+  function highlightPipelineStep(stationId, scrollCardIntoView = false) {
+    if (!stationId) return;
+    const norm = String(stationId).toLowerCase();
+    stepCards.forEach((card) => {
+      const match = card.dataset.stationStep === norm;
+      card.classList.toggle('is-active', match);
+      if (match && scrollCardIntoView) {
+        const rect = card.getBoundingClientRect();
+        if (rect.top < 80 || rect.bottom > window.innerHeight - 40) {
+          card.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
+        }
+      }
+    });
+  }
+
+  stepCards.forEach((card) => {
+    const activate = () => {
+      const id = card.dataset.stationStep;
+      if (!id) return;
+      highlightPipelineStep(id, false);
+      if (window.__machine && typeof window.__machine.focusStation === 'function') {
+        window.__machine.focusStation(id);
+      }
+    };
+    card.addEventListener('click', activate);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate();
+      }
+    });
+  });
+
+  if (!isWebGLSupported()) {
+    hideHeroMachine();
+    return;
+  }
+
+  let machineModulePromise = null;
+  function loadMachineModule() {
+    if (!machineModulePromise) {
+      machineModulePromise = import('./machine3d.js').catch((err) => {
+        machineModulePromise = null;
+        throw err;
+      });
+    }
+    return machineModulePromise;
+  }
+
+  // 1. Hero Machine (embed: true) — mount when hero in view, dispose when far off-screen
+  if (heroContainer && heroSection && 'IntersectionObserver' in window) {
+    let disposeHero = null;
+    let mountingHero = false;
+
+    const heroObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          if (!disposeHero && !mountingHero) {
+            mountingHero = true;
+            loadMachineModule()
+              .then(({ mountMachine }) => {
+                if (!entry.target.isConnected) return;
+                disposeHero = mountMachine(heroContainer, {
+                  embed: true,
+                  onError: hideHeroMachine,
+                });
+              })
+              .catch(() => {
+                hideHeroMachine();
+              })
+              .finally(() => {
+                mountingHero = false;
+              });
+          }
+        } else if (disposeHero) {
+          disposeHero();
+          disposeHero = null;
+        }
+      },
+      { rootMargin: '300px 0px' }
+    );
+    heroObserver.observe(heroSection);
+  }
+
+  // 2. "How It Works" Full Machine (embed: false) — lazy-mounted when scrolled near, disposed when far off-screen
+  if (howContainer && 'IntersectionObserver' in window) {
+    let disposeHow = null;
+    let mountingHow = false;
+
+    const howObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          if (!disposeHow && !mountingHow) {
+            mountingHow = true;
+            loadMachineModule()
+              .then(({ mountMachine }) => {
+                if (!entry.target.isConnected) return;
+                disposeHow = mountMachine(howContainer, {
+                  embed: false,
+                  onStation: (stationId) => highlightPipelineStep(stationId, true),
+                });
+              })
+              .catch(() => {
+                // degrade silently
+              })
+              .finally(() => {
+                mountingHow = false;
+              });
+          }
+        } else if (disposeHow) {
+          disposeHow();
+          disposeHow = null;
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+    howObserver.observe(howContainer);
+  }
 }
 
 if (document.readyState === 'loading') {

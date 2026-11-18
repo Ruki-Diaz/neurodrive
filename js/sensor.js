@@ -1,94 +1,84 @@
-// Ray sensors: each ray reports proximity 0 (nothing in range) .. 1 (touching).
+// 7 ray sensors. Each ray reports proximity 0 (nothing within range) .. 1 (touching) to the nearest
+// road edge or traffic car. Ray lengths are tuned per angle: long straight ahead, short to the sides
+// (side rays mostly measure where the car sits within its lane).
 
-export const lerp = (a, b, t) => a + (b - a) * t;
+import { raySeg } from './world.js';
 
-// Segment AB vs segment CD. Returns hit point and `offset` (0..1 along AB) or null.
-export function getIntersection(A, B, C, D) {
-  const tTop = (D.x - C.x) * (A.y - C.y) - (D.y - C.y) * (A.x - C.x);
-  const uTop = (C.y - A.y) * (A.x - B.x) - (C.x - A.x) * (A.y - B.y);
-  const bottom = (D.y - C.y) * (B.x - A.x) - (D.x - C.x) * (B.y - A.y);
-  if (bottom !== 0) {
-    const t = tTop / bottom;
-    const u = uTop / bottom;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-      return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t), offset: t };
-    }
-  }
-  return null;
-}
+export const RAY_ANGLES = [-90, -45, -20, 0, 20, 45, 90].map((d) => (d * Math.PI) / 180);
+export const RAY_LENGTHS = [10, 20, 35, 50, 35, 20, 10];
+const TRAFFIC_REACH = 55;
 
 export class Sensor {
-  constructor(car, { rayCount = 5, rayLength = 170, raySpread = Math.PI / 2 } = {}) {
+  constructor(car) {
     this.car = car;
-    this.rayCount = rayCount;
-    this.rayLength = rayLength;
-    this.raySpread = raySpread;
-    this.rays = [];
-    this.readings = [];
-    this.proximity = new Array(rayCount).fill(0);
+    this.count = RAY_ANGLES.length;
+    this.dist = new Float64Array(this.count);
+    this.proximity = new Float64Array(this.count);
+    this.hitCar = new Uint8Array(this.count); // 1 if the ray hit a traffic car rather than a kerb
   }
 
-  update(borders, traffic) {
-    this.#castRays();
-    for (let i = 0; i < this.rays.length; i++) {
-      const hit = this.#read(this.rays[i], borders, traffic);
-      this.readings[i] = hit;
-      this.proximity[i] = hit ? 1 - hit.offset : 0;
+  update(world, traffic) {
+    const { x, y, heading } = this.car;
+    const near = this.#nearTraffic(traffic, x, y);
+    for (let i = 0; i < this.count; i++) {
+      const a = heading + RAY_ANGLES[i];
+      const dx = Math.sin(a);
+      const dy = -Math.cos(a);
+      const len = RAY_LENGTHS[i];
+      let d = world.raycast(x, y, dx, dy, len);
+      let hitCar = 0;
+      for (let k = 0; k < near.length; k++) {
+        const c = near[k].corners;
+        for (let j = 0; j < 4; j++) {
+          const jn = (j + 1) & 3;
+          const t = raySeg(x, y, dx, dy, c[j * 2], c[j * 2 + 1], c[jn * 2], c[jn * 2 + 1]);
+          if (t >= 0 && t < d) {
+            d = t;
+            hitCar = 1;
+          }
+        }
+      }
+      this.dist[i] = d;
+      this.hitCar[i] = hitCar;
+      this.proximity[i] = 1 - d / len;
     }
   }
 
-  #castRays() {
-    const { x, y, angle } = this.car;
-    this.rays.length = 0;
-    for (let i = 0; i < this.rayCount; i++) {
-      const k = this.rayCount === 1 ? 0.5 : i / (this.rayCount - 1);
-      const a = lerp(this.raySpread / 2, -this.raySpread / 2, k) + angle;
-      this.rays.push([
-        { x, y },
-        { x: x - Math.sin(a) * this.rayLength, y: y - Math.cos(a) * this.rayLength },
-      ]);
+  #nearTraffic(traffic, x, y) {
+    const out = (this.near ||= []);
+    out.length = 0;
+    const r2 = TRAFFIC_REACH * TRAFFIC_REACH;
+    for (let i = 0; i < traffic.length; i++) {
+      const t = traffic[i];
+      const dx = t.x - x;
+      const dy = t.y - y;
+      if (dx * dx + dy * dy < r2) out.push(t);
     }
+    return out;
   }
 
-  #read([s, e], borders, traffic) {
-    let best = null;
-    const consider = (hit) => {
-      if (hit && (!best || hit.offset < best.offset)) best = hit;
-    };
-    for (const b of borders) consider(getIntersection(s, e, b[0], b[1]));
-    const reach = this.rayLength + 60;
-    for (const t of traffic) {
-      if (Math.abs(t.y - this.car.y) > reach) continue;
-      const p = t.polygon;
-      for (let j = 0; j < p.length; j++) consider(getIntersection(s, e, p[j], p[(j + 1) % p.length]));
-    }
-    return best;
-  }
-
-  draw(ctx, color) {
+  // Draw in world coordinates (caller has applied the camera transform; lw = 1 screen px in metres).
+  draw(ctx, color, lw) {
+    const { x, y, heading } = this.car;
     ctx.save();
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < this.rays.length; i++) {
-      const [s, e] = this.rays[i];
-      const hit = this.readings[i];
-      const end = hit || e;
-      ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.2 * lw;
+    for (let i = 0; i < this.count; i++) {
+      const a = heading + RAY_ANGLES[i];
+      const dx = Math.sin(a);
+      const dy = -Math.cos(a);
+      const d = this.dist[i];
+      const hit = d < RAY_LENGTHS[i] - 1e-6;
+      ctx.globalAlpha = hit ? 0.75 : 0.35;
       ctx.strokeStyle = color;
       ctx.beginPath();
-      ctx.moveTo(s.x, s.y);
-      ctx.lineTo(end.x, end.y);
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx * d, y + dy * d);
       ctx.stroke();
       if (hit) {
-        ctx.globalAlpha = 0.15;
-        ctx.strokeStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.moveTo(hit.x, hit.y);
-        ctx.lineTo(e.x, e.y);
-        ctx.stroke();
         ctx.globalAlpha = 0.95;
-        ctx.fillStyle = color;
+        ctx.fillStyle = this.hitCar[i] ? '#ffffff' : color;
         ctx.beginPath();
-        ctx.arc(hit.x, hit.y, 3, 0, Math.PI * 2);
+        ctx.arc(x + dx * d, y + dy * d, 2.5 * lw, 0, Math.PI * 2);
         ctx.fill();
       }
     }

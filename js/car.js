@@ -1,142 +1,229 @@
-import { Sensor, getIntersection } from './sensor.js';
+// Learner car: metric kinematic bicycle model driven by a neural network.
+// Heading is a compass bearing in radians (0 = north, clockwise); forward = (sin h, -cos h).
+
+import { Sensor } from './sensor.js';
 import { NeuralNetwork } from './network.js';
+import { SIGNAL_RANGE } from './signals.js';
 
-// Cars whose average forward progress (EMA, ~1s window) drops below MIN_PACE are retired.
-// MIN_PACE sits just above traffic speed: otherwise braking behind a traffic car forever outscores
-// every failed overtake attempt and evolution never discovers lane changes. Also catches stalls,
-// circling and reversing.
-const MIN_PACE = 2.3;
-const PACE_EMA = 1 / 60;
+export const CAR_LENGTH = 4.5;
+export const CAR_WIDTH = 1.9;
+export const WHEELBASE = 2.7;
+export const VMAX = 40 / 3.6; // CBD limit, m/s
 
-export function polysIntersect(p1, p2) {
-  for (let i = 0; i < p1.length; i++) {
-    const a = p1[i];
-    const b = p1[(i + 1) % p1.length];
-    for (let j = 0; j < p2.length; j++) {
-      if (getIntersection(a, b, p2[j], p2[(j + 1) % p2.length])) return true;
-    }
-  }
-  return false;
+const ACCEL = 3.0; // m/s² full throttle
+const BRAKE = 7.0; // m/s² full brake
+const ROLL = 0.3; // m/s² rolling resistance
+// Aerodynamic-style drag (∝ v²) calibrated so full throttle tops out exactly at the 40 km/h limit.
+// Cruise speed is then a smooth function of the pedal (80% ≈ 35 km/h, 60% ≈ 29 km/h), which gives
+// evolution a gradient towards "slow down for corners" instead of an all-or-nothing throttle.
+const DRAG_K = (ACCEL - ROLL) / (VMAX * VMAX);
+const MAX_STEER = 0.6; // rad, at walking pace
+const A_LAT = 8; // m/s² lateral grip limit (~0.8 g) -> steering lock shrinks with speed
+const STEER_RATE = 2.0; // rad/s
+const OFF_ROUTE = 15; // m from the planned route = took a wrong turn
+const STALL_TIME = 3; // s stopped for no reason
+const NO_PROGRESS_TIME = 15; // s without gaining route progress
+
+export const PENALTY = { offroad: 30, collision: 50, wrongway: 60, red: 100, stall: 20, lost: 20 };
+
+export function maxSteer(v) {
+  return Math.min(MAX_STEER, Math.atan((WHEELBASE * A_LAT) / Math.max(v * v, 0.01)));
 }
 
+// Writes the 4 corners (x0,y0,..x3,y3: front-left, front-right, rear-right, rear-left) into out.
+export function carCorners(x, y, h, out, len = CAR_LENGTH, wid = CAR_WIDTH) {
+  const fx = Math.sin(h) * (len / 2);
+  const fy = -Math.cos(h) * (len / 2);
+  const rx = Math.cos(h) * (wid / 2);
+  const ry = Math.sin(h) * (wid / 2);
+  out[0] = x + fx - rx; out[1] = y + fy - ry;
+  out[2] = x + fx + rx; out[3] = y + fy + ry;
+  out[4] = x - fx + rx; out[5] = y - fy + ry;
+  out[6] = x - fx - rx; out[7] = y - fy - ry;
+  return out;
+}
+
+// Separating-axis test for two convex quads given as corner arrays.
+export function quadsOverlap(a, b) {
+  for (const q of [a, b]) {
+    for (let i = 0; i < 2; i++) {
+      const ax = q[(i + 1) * 2] - q[i * 2];
+      const ay = q[(i + 1) * 2 + 1] - q[i * 2 + 1];
+      let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+      for (let j = 0; j < 4; j++) {
+        const pa = a[j * 2] * ax + a[j * 2 + 1] * ay;
+        const pb = b[j * 2] * ax + b[j * 2 + 1] * ay;
+        if (pa < amin) amin = pa;
+        if (pa > amax) amax = pa;
+        if (pb < bmin) bmin = pb;
+        if (pb > bmax) bmax = pb;
+      }
+      if (amax < bmin || bmax < amin) return false;
+    }
+  }
+  return true;
+}
+
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
 export class Car {
-  constructor(x, y, { width = 30, height = 50, maxSpeed = 3.5, type = 'ai', brain = null } = {}) {
+  constructor(x, y, heading, brain = null) {
     this.x = x;
     this.y = y;
-    this.width = width;
-    this.height = height;
-    this.type = type;
-    this.angle = 0;
+    this.heading = heading;
     this.speed = 0;
-    this.maxSpeed = maxSpeed;
-    this.acceleration = 0.2;
-    this.friction = 0.05;
-    this.damaged = false;
-    this.controls = { forward: false, left: false, right: false, reverse: false };
+    this.steer = 0;
+    this.brain = brain || new NeuralNetwork();
+    this.sensor = new Sensor(this);
+    this.corners = carCorners(x, y, heading, new Float64Array(8));
+    this.inputs = new Float64Array(12);
 
-    if (type === 'ai') {
-      this.sensor = new Sensor(this);
-      this.brain = brain || new NeuralNetwork();
-      this.startY = y;
-      this.distance = 0;
-      this.pace = maxSpeed; // optimistic start so the launch from standstill isn't penalised
-    } else {
-      this.speed = maxSpeed;
-      this.shade = 0.6;
-    }
-    this.polygon = this.#createPolygon();
+    this.alive = true; // still driving
+    this.reached = false;
+    this.reason = '';
+    this.time = 0;
+    this.progress = 0;
+    this.maxProgress = 0;
+    this.lastGain = 0;
+    this.seg = 0;
+    this.stallT = 0;
+    this.penalty = 0;
+    this.frame = 0;
+    this.sig = { i: -1, dist: 0, state: 'green' };
+    this.prevSig = -1;
+    this.prevSigState = 'green';
+    this.street = null; // nearest road object (refreshed every 10 frames)
   }
 
-  update(borders, traffic) {
-    if (this.damaged) return;
-    if (this.type !== 'ai') {
-      this.y -= this.speed; // traffic cruises at constant speed
-      this.polygon = this.#createPolygon();
+  retire(reason) {
+    this.alive = false;
+    this.reason = reason;
+    this.penalty += PENALTY[reason] || 0;
+  }
+
+  fitness(timeLimit) {
+    let f = this.maxProgress - this.penalty;
+    // Small time bonus only: a big one rewards the most aggressive (and most fragile) drivers.
+    if (this.reached) f += 1000 + Math.max(0, timeLimit - this.time);
+    return f;
+  }
+
+  // sim: { world, route, signals, traffic: TrafficCar[] }
+  update(dt, sim) {
+    if (!this.alive) return;
+    this.time += dt;
+    this.frame++;
+    const { world, route, signals, traffic } = sim;
+    const fx = Math.sin(this.heading);
+    const fy = -Math.cos(this.heading);
+
+    // ---- sense ----
+    this.sensor.update(world, traffic);
+    const inp = this.inputs;
+    for (let i = 0; i < 7; i++) inp[i] = this.sensor.proximity[i];
+    inp[7] = this.speed / VMAX;
+    // Next waypoint: interpolated route point 5 m + 0.6 s ahead (smoother than jumping between the
+    // 15 m waypoints, and far enough ahead at speed for a corner to show up in time to brake).
+    const wp = route.pointAt(this.progress + 5 + this.speed * 0.6);
+    const rel = wrapAngle(Math.atan2(wp[0] - this.x, -(wp[1] - this.y)) - this.heading);
+    inp[8] = Math.sin(rel);
+    inp[9] = Math.cos(rel);
+    const sig = signals.ahead(this.x, this.y, fx, fy, this.sig);
+    inp[10] = sig ? 1 - sig.dist / SIGNAL_RANGE : 0;
+    inp[11] = !sig ? 0 : sig.state === 'red' ? 1 : sig.state === 'amber' ? 0.5 : 0;
+
+    // ---- act ----
+    const out = this.brain.feedForward(inp);
+    const target = out[0] * maxSteer(this.speed);
+    const ds = STEER_RATE * dt;
+    this.steer += Math.max(-ds, Math.min(ds, target - this.steer));
+    const pedal = out[1];
+    const acc = (pedal >= 0 ? ACCEL * pedal : BRAKE * pedal) - ROLL - DRAG_K * this.speed * this.speed;
+    // Speed limiter: the street's posted limit, never above the 40 km/h CBD limit.
+    const limit = Math.min(VMAX, (this.street?.maxspeedKmh || 40) / 3.6);
+    this.speed = Math.max(0, Math.min(limit, this.speed + acc * dt));
+    this.heading += (this.speed / WHEELBASE) * Math.tan(this.steer) * dt;
+    this.x += Math.sin(this.heading) * this.speed * dt;
+    this.y -= Math.cos(this.heading) * this.speed * dt;
+    carCorners(this.x, this.y, this.heading, this.corners);
+
+    // ---- judge ----
+    const c = this.corners;
+    for (let i = 0; i < 4; i++) {
+      if (!world.onRoad(c[i * 2], c[i * 2 + 1])) return this.retire('offroad');
+    }
+    for (let i = 0; i < traffic.length; i++) {
+      const t = traffic[i];
+      if (Math.abs(t.x - this.x) < 5 && Math.abs(t.y - this.y) < 5 && quadsOverlap(c, t.corners)) {
+        return this.retire('collision');
+      }
+    }
+
+    const pr = route.project(this.x, this.y, this.seg);
+    if (pr.dist > OFF_ROUTE) return this.retire('lost');
+    this.seg = pr.seg;
+    this.progress = pr.s;
+    if (pr.s > this.maxProgress + 0.5) {
+      this.maxProgress = pr.s;
+      this.lastGain = this.time;
+    }
+    if (this.maxProgress >= route.length - 5) {
+      this.reached = true;
+      this.alive = false;
+      this.reason = 'arrived';
       return;
     }
 
-    const prevY = this.y;
-    this.#move();
-    this.polygon = this.#createPolygon();
-    if (this.#assessDamage(borders, traffic)) {
-      this.damaged = true;
-      this.speed = 0;
-      return;
+    // Ran a red: the signal we were approaching is now behind us and it was red.
+    if (this.prevSig >= 0 && (!sig || sig.i !== this.prevSig)) {
+      const n = signals.nodes[this.prevSig];
+      const behind = (n.x - this.x) * fx + (n.y - this.y) * fy <= 0;
+      if (behind && this.prevSigState === 'red') return this.retire('red');
+    }
+    this.prevSig = sig ? sig.i : -1;
+    this.prevSigState = sig ? sig.state : 'green';
+
+    if (this.frame % 10 === 0) {
+      const near = world.nearestRoad(this.x, this.y, 8);
+      this.street = near ? near.road : this.street;
+      if (near && near.road.oneway && near.dist < near.road.width / 2) {
+        const s = near.seg;
+        if ((s.bx - s.ax) * fx + (s.by - s.ay) * fy < -0.5 * Math.hypot(s.bx - s.ax, s.by - s.ay)) {
+          return this.retire('wrongway');
+        }
+      }
     }
 
-    this.sensor.update(borders, traffic);
-    const out = this.brain.feedForward(this.sensor.proximity);
-    this.controls.forward = out[0] > 0;
-    this.controls.left = out[1] > 0;
-    this.controls.right = out[2] > 0;
-    this.controls.reverse = out[3] > 0;
-
-    this.distance = Math.max(this.distance, this.startY - this.y);
-    this.pace += (prevY - this.y - this.pace) * PACE_EMA;
-    if (this.pace < MIN_PACE) this.damaged = true;
+    // Stalling: stopped without a red light or a car in front to justify it.
+    const waiting = (sig && sig.state !== 'green') || (this.sensor.hitCar[3] && this.sensor.dist[3] < 12);
+    if (waiting) this.lastGain = this.time; // the no-progress clock pauses at lights and in queues
+    this.stallT = this.speed < 0.5 && !waiting ? this.stallT + dt : 0;
+    if (this.stallT > STALL_TIME) return this.retire('stall');
+    if (this.time - this.lastGain > NO_PROGRESS_TIME) return this.retire('stall');
   }
+}
 
-  #move() {
-    const c = this.controls;
-    if (c.forward) this.speed += this.acceleration;
-    if (c.reverse) this.speed -= this.acceleration;
-    this.speed = Math.max(-this.maxSpeed / 2, Math.min(this.maxSpeed, this.speed));
-    if (Math.abs(this.speed) <= this.friction) this.speed = 0;
-    else this.speed -= Math.sign(this.speed) * this.friction;
-
-    if (this.speed !== 0) {
-      const flip = this.speed > 0 ? 1 : -1; // steering inverts when reversing
-      if (c.left) this.angle += 0.03 * flip;
-      if (c.right) this.angle -= 0.03 * flip;
-    }
-    this.x -= Math.sin(this.angle) * this.speed;
-    this.y -= Math.cos(this.angle) * this.speed;
+// Draw a car body in world units (caller applied the camera transform).
+export function drawCar(ctx, x, y, heading, color, alpha = 1, glow = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  if (glow) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glow;
   }
-
-  #createPolygon() {
-    const rad = Math.hypot(this.width, this.height) / 2;
-    const alpha = Math.atan2(this.width, this.height);
-    const { x, y, angle } = this;
-    return [
-      { x: x - Math.sin(angle - alpha) * rad, y: y - Math.cos(angle - alpha) * rad },
-      { x: x - Math.sin(angle + alpha) * rad, y: y - Math.cos(angle + alpha) * rad },
-      { x: x - Math.sin(Math.PI + angle - alpha) * rad, y: y - Math.cos(Math.PI + angle - alpha) * rad },
-      { x: x - Math.sin(Math.PI + angle + alpha) * rad, y: y - Math.cos(Math.PI + angle + alpha) * rad },
-    ];
-  }
-
-  #assessDamage(borders, traffic) {
-    for (const b of borders) if (polysIntersect(this.polygon, b)) return true;
-    const reach = this.height * 1.5;
-    for (const t of traffic) {
-      if (Math.abs(t.y - this.y) > reach) continue;
-      if (polysIntersect(this.polygon, t.polygon)) return true;
-    }
-    return false;
-  }
-
-  draw(ctx, color, alpha = 1, { sensor = false, glow = false } = {}) {
-    if (sensor && this.sensor) this.sensor.draw(ctx, color);
-    const w = this.width;
-    const h = this.height;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(-this.angle);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    if (glow) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 18;
-    }
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, 7);
-    else ctx.rect(-w / 2, -h / 2, w, h);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = alpha * 0.6;
-    ctx.fillStyle = '#01010D';
-    ctx.fillRect(-w / 2 + 4, -h / 2 + 9, w - 8, 9); // windshield
-    ctx.fillRect(-w / 2 + 5, h / 2 - 11, w - 10, 6); // rear window
-    ctx.restore();
-  }
+  const w = CAR_WIDTH;
+  const l = CAR_LENGTH;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-w / 2, -l / 2, w, l, 0.5);
+  else ctx.rect(-w / 2, -l / 2, w, l);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = alpha * 0.55;
+  ctx.fillStyle = '#01010D';
+  ctx.fillRect(-w / 2 + 0.25, -l / 2 + 1.0, w - 0.5, 0.8); // windscreen
+  ctx.fillRect(-w / 2 + 0.3, l / 2 - 1.0, w - 0.6, 0.5); // rear window
+  ctx.restore();
 }

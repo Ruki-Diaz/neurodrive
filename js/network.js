@@ -1,7 +1,9 @@
 // Feed-forward neural network + live visualizer. No dependencies.
 
-export const LAYERS = [5, 6, 4];
-const OUTPUT_LABELS = ['↑', '←', '→', '↓'];
+// Inputs: 7 rays, speed, sin/cos bearing to next waypoint, next-signal distance + state.
+// Outputs: steer (-1 left .. +1 right), pedal (-1 brake .. +1 accelerate).
+export const LAYERS = [12, 14, 2];
+const OUTPUT_LABELS = ['steer', 'gas'];
 const FALLBACK = { onyx: '#01010D', indigo: '#6331FB', mint: '#88F9C0' };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -141,17 +143,23 @@ export function drawNetwork(ctx, net, opts = {}) {
 
   const values = [net.levels[0].inputs, ...net.levels.map((l) => l.outputs)];
   const horizontal = w >= h;
-  const r = Math.max(5, Math.min(14, Math.min(w, h) / 20));
-  const pad = r * 2.6;
+  const maxN = Math.max(...values.map((v) => v.length));
+  const across = horizontal ? h : w;
+  const r = Math.max(3, Math.min(14, Math.min(w, h) / 20, (across * 0.8) / (maxN * 2.6)));
+  const pad = r * 2.2;
+  const labelRoom = horizontal ? r * 4.5 : 0; // space for output labels on the right
 
   // Horizontal: inputs left → outputs right. Vertical: inputs bottom → outputs top.
   const pos = (li, ni) => {
     const n = values[li].length;
     const a = li / (values.length - 1);
     const b = n === 1 ? 0.5 : ni / (n - 1);
+    // Smaller layers are centred instead of stretched across the full height.
+    const spanFrac = Math.min(1, (n - 1) / Math.max(1, maxN - 1) + 0.25);
+    const bb = 0.5 + (b - 0.5) * spanFrac;
     return horizontal
-      ? { x: lerp(pad, w - pad, a), y: lerp(pad, h - pad, b) }
-      : { x: lerp(pad, w - pad, b), y: lerp(h - pad, pad, a) };
+      ? { x: lerp(pad, w - pad - labelRoom, a), y: lerp(pad, h - pad, bb) }
+      : { x: lerp(pad, w - pad, bb), y: lerp(h - pad - r * 2, pad, a) };
   };
 
   ctx.save();
@@ -220,10 +228,10 @@ export function drawNetwork(ctx, net, opts = {}) {
       if (isOut && OUTPUT_LABELS[ni]) {
         ctx.globalAlpha = on ? 1 : 0.45;
         ctx.fillStyle = on ? pal.mint : '#ffffff';
-        ctx.font = `600 ${Math.round(r * 1.3)}px Inter, system-ui, sans-serif`;
-        ctx.textAlign = 'center';
+        ctx.font = `600 ${Math.max(10, Math.round(r * 1.1))}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = horizontal ? 'left' : 'center';
         ctx.textBaseline = 'middle';
-        const lx = horizontal ? p.x + r * 2 : p.x;
+        const lx = horizontal ? p.x + r * 1.6 : p.x;
         const ly = horizontal ? p.y : p.y - r * 2;
         ctx.fillText(OUTPUT_LABELS[ni], lx, ly);
       }

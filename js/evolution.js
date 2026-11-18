@@ -1,120 +1,191 @@
+// Neuroevolution (elitism + mutation) and the DOM-free simulation that runs one scenario.
+
 import { Car } from './car.js';
 import { NeuralNetwork } from './network.js';
-import { START_Y } from './road.js';
+import { Traffic } from './traffic.js';
+import { Signals } from './signals.js';
+import { SCENARIOS, buildScenario } from './scenarios.js';
 
-const LAG_LIMIT = 900; // cars this far behind the leader are retired
 const HISTORY_MAX = 1000;
 const MAX_BOOST = 4;
-
-export const toMeters = (units) => Math.round(units / 10);
+export const ADVANCE_AT = 0.7; // success rate that unlocks the next scenario
 
 export class Evolution {
-  constructor({ size = 100, mutation = 0.1, brain = null, immigrants = 0.1 } = {}) {
+  constructor({ size = 100, mutation = 0.1, brain = null } = {}) {
     this.size = size;
-    this.immigrants = immigrants; // fraction of fresh random brains each generation (keeps diversity)
     this.mutation = mutation;
     this.elite = brain;
-    this.eliteDistance = 0;
-    this.stagnant = 0; // generations without a new best; drives adaptive mutation
+    this.parents = brain ? [brain] : []; // elite + next-best brains of the last generation
+    this.eliteFitness = -Infinity;
+    this.stagnant = 0;
+    this.lastSuccess = 0;
+  }
+
+  // Replace the gene pool with a single brain (loaded from storage, reset, ...).
+  seed(brain) {
+    this.elite = brain;
+    this.parents = brain ? [brain] : [];
+  }
+
+  // The parents (elite + up to 4 runners-up) are kept untouched; everyone else is a mutated copy of
+  // one of them. Several parents keep the population from collapsing onto one fragile driver.
+  // Mutation strength ramps quadratically from 0.05x to 1.5x the setting (most stay close, a few
+  // explore). While nobody arrives and progress stalls, mutation is boosted and random brains mixed
+  // in; once cars do arrive, mutation drops to 20% so the policy is refined rather than wrecked.
+  brains() {
+    const n = this.size;
+    if (!this.elite) return Array.from({ length: n }, () => new NeuralNetwork());
+    const P = this.parents.length ? this.parents : [this.elite];
+    const boost = Math.min(MAX_BOOST, 1 + this.stagnant);
+    const refine = this.lastSuccess > 0 ? 0.2 : 1;
+    const fresh = this.stagnant ? Math.floor(n * Math.min(0.3, 0.05 * boost)) : 0;
+    return Array.from({ length: n }, (_, i) => {
+      if (i < P.length) return P[i].clone();
+      if (i >= n - fresh) return new NeuralNetwork();
+      const k = i / Math.max(1, n - 1);
+      const ramp = 0.05 + 1.45 * k * k;
+      return P[i % P.length].clone().mutate(Math.min(1, this.mutation * boost * ramp * refine));
+    });
+  }
+
+  // Pick the next elite. Ties (within 0.5) go to a random car so evolution can drift off plateaus.
+  // Stagnation only counts while nobody arrives: once cars reach the destination, small fitness
+  // gains (a slightly faster time) are fine and boosting mutation would just wreck a working policy.
+  select(cars, timeLimit) {
+    let top = -Infinity;
+    for (const c of cars) top = Math.max(top, c.fitness(timeLimit));
+    const ties = cars.filter((c) => c.fitness(timeLimit) >= top - 0.5);
+    const best = ties[Math.floor(Math.random() * ties.length)];
+    const arriving = cars.some((c) => c.reached);
+    this.lastSuccess = cars.filter((c) => c.reached).length / cars.length;
+    this.stagnant = arriving || top > this.eliteFitness + 1 ? 0 : this.stagnant + 1;
+    this.elite = best.brain.clone();
+    this.eliteFitness = top;
+    const ranked = [...cars].sort((a, b) => b.fitness(timeLimit) - a.fitness(timeLimit));
+    this.parents = [this.elite, ...ranked.filter((c) => c !== best).slice(0, 4).map((c) => c.brain.clone())];
+    return best;
+  }
+
+  forgetFitness() {
+    // New scenario: old fitness isn't comparable, but keep the brain.
+    this.eliteFitness = -Infinity;
+    this.stagnant = 0;
+    this.lastSuccess = 0;
+  }
+}
+
+export class Simulation {
+  constructor(world, graph, { population = 100, mutation = 0.1, traffic = 0, signalsOn = false, brain = null, seed } = {}) {
+    this.world = world;
+    this.graph = graph;
+    this.evo = new Evolution({ size: population, mutation, brain });
+    this.signals = new Signals(world, { enabled: signalsOn });
+    this.traffic = new Traffic(world, graph, this.signals);
+    this.traffic.density = traffic;
+    this.seed = seed ?? ((Math.random() * 2 ** 32) >>> 0);
     this.generation = 1;
     this.history = [];
-    this.bestDistance = 0; // all-time, world units
+    this.bestDistance = 0;
+    this.success = 0;
     this.cars = [];
-    this.alive = 0;
     this.leader = null;
-    this.rearY = START_Y;
+    this.alive = 0;
+    this.time = 0;
+    this.onGeneration = null; // ({generation, best, success, history})
+    this.onScenario = null; // ({id})
+    this.ctx = { world, route: null, signals: this.signals, traffic: this.traffic.cars };
   }
 
-  // Car 0 gets the elite brain untouched; everyone else gets a mutated copy. Mutation strength
-  // ramps from 0.25x to 2x the setting across the population: small tweaks refine, big ones explore.
-  // While progress stalls, both mutation and the share of fresh random brains are boosted.
-  populate(road) {
-    const x = road.laneCenter(Math.floor(road.lanes / 2));
-    const n = this.size;
-    const boost = Math.min(MAX_BOOST, 1 + this.stagnant);
-    const rate = this.mutation * boost;
-    const fresh = Math.floor(n * Math.min(0.4, this.immigrants * boost));
-    this.cars = Array.from({ length: n }, (_, i) => {
-      let brain;
-      if (!this.elite || (i > 0 && i >= n - fresh)) brain = new NeuralNetwork();
-      else {
-        brain = this.elite.clone();
-        if (i > 0) brain.mutate(Math.min(1, rate * (0.25 + (1.75 * i) / Math.max(1, n - 1))));
-      }
-      return new Car(x, START_Y, { brain });
-    });
-    this.alive = this.cars.length;
+  setScenario(id, { applyDefaults = true } = {}) {
+    const def = SCENARIOS.find((s) => s.id === id) || SCENARIOS[0];
+    this.scenario = buildScenario(def, this.world, this.graph);
+    this.ctx.route = this.scenario.route;
+    if (applyDefaults) {
+      this.traffic.density = def.traffic;
+      this.signals.enabled = def.signals;
+    }
+    this.traffic.setRoute(this.scenario.route, this.seed + id);
+    this.evo.forgetFitness();
+    this.bestDistance = 0;
+    this.success = 0;
+    this.spawn();
+    this.onScenario?.({ id: def.id });
+  }
+
+  // Start a generation with the current elite (+ mutants).
+  spawn() {
+    const { start } = this.scenario;
+    this.cars = this.evo.brains().map((b) => new Car(start.x, start.y, start.heading, b));
     this.leader = this.cars[0];
-    this.rearY = START_Y;
+    this.alive = this.cars.length;
+    this.time = 0;
+    this.signals.reset();
+    this.traffic.reset();
   }
 
-  update(borders, traffic) {
-    for (const car of this.cars) car.update(borders, traffic);
-
+  step(dt) {
+    this.time += dt;
+    this.signals.update(dt);
+    this.traffic.update(dt);
+    let alive = 0;
     let leader = null;
     for (const car of this.cars) {
-      if (!car.damaged && (!leader || car.distance > leader.distance)) leader = car;
-    }
-
-    let alive = 0;
-    let rear = -Infinity;
-    for (const car of this.cars) {
-      if (car.damaged) continue;
-      if (leader && car.y - leader.y > LAG_LIMIT) {
-        car.damaged = true;
-        continue;
+      car.update(dt, this.ctx);
+      if (car.alive) {
+        alive++;
+        if (!leader || car.maxProgress > leader.maxProgress) leader = car;
       }
-      alive++;
-      if (car.y > rear) rear = car.y;
     }
-
     this.alive = alive;
-    this.leader = leader || this.best();
-    this.rearY = alive ? rear : this.leader.y;
-    if (this.leader.distance > this.bestDistance) this.bestDistance = this.leader.distance;
+    if (leader) this.leader = leader;
+    else if (!this.leader || this.leader.alive) this.leader = this.#bestByProgress();
+    if (this.leader.maxProgress > this.bestDistance) this.bestDistance = this.leader.maxProgress;
+
+    if (alive === 0 || this.time >= this.scenario.timeLimit) this.endGeneration();
   }
 
-  best() {
+  #bestByProgress() {
     let best = this.cars[0];
-    for (const car of this.cars) if (car.distance > best.distance) best = car;
-    return best;
-  }
-
-  // Like best(), but ties go to a random car. Many brains often die at the same spot; always
-  // keeping the old elite there would freeze evolution on a plateau.
-  #pickElite() {
-    const top = this.best().distance;
-    const ties = this.cars.filter((c) => c.distance >= top - 1);
-    return ties[Math.floor(Math.random() * ties.length)];
-  }
-
-  evolve(road) {
-    const best = this.#pickElite();
-    this.history.push(toMeters(best.distance));
-    if (this.history.length > HISTORY_MAX) this.history.shift();
-    this.stagnant = this.elite && best.distance < this.eliteDistance + 10 ? this.stagnant + 1 : 0;
-    this.elite = best.brain.clone();
-    this.eliteDistance = best.distance;
-    this.generation++;
-    this.populate(road);
-    return best;
-  }
-
-  // Keep the current leader as elite when restarting mid-generation, if it's at least as good.
-  adoptLeader() {
-    const l = this.leader;
-    if (l && l.brain && (!this.elite || l.distance >= this.eliteDistance)) {
-      this.elite = l.brain.clone();
-      this.eliteDistance = l.distance;
+    for (const c of this.cars) {
+      if (c.reached > best.reached || (c.reached === best.reached && c.maxProgress > best.maxProgress)) best = c;
     }
+    return best;
   }
 
-  reset(brain = null) {
-    this.elite = brain;
-    this.eliteDistance = 0;
-    this.stagnant = 0;
+  endGeneration() {
+    const limit = this.scenario.timeLimit;
+    for (const c of this.cars) if (c.alive) c.retire('timeout');
+    const reached = this.cars.filter((c) => c.reached).length;
+    this.success = reached / this.cars.length;
+    const best = this.evo.select(this.cars, limit);
+    const bestProgress = Math.round(Math.max(...this.cars.map((c) => c.maxProgress)));
+    this.history.push(bestProgress);
+    if (this.history.length > HISTORY_MAX) this.history.shift();
+    this.generation++;
+    this.onGeneration?.({ generation: this.generation, best: bestProgress, success: this.success, history: this.history, bestCar: best });
+
+    const id = this.scenario.def.id;
+    if (this.success >= ADVANCE_AT && id < SCENARIOS.length) this.setScenario(id + 1);
+    else this.spawn();
+  }
+
+  // Restart the current generation (e.g. population changed), keeping the leader if it's better.
+  restart() {
+    const l = this.leader;
+    if (l && (!this.evo.elite || l.fitness(this.scenario.timeLimit) > this.evo.eliteFitness)) {
+      this.evo.seed(l.brain.clone());
+    }
+    this.spawn();
+  }
+
+  reset() {
+    this.evo.seed(null);
+    this.evo.forgetFitness();
     this.generation = 1;
-    this.history.length = 0; // keep array identity for consumers holding a reference
+    this.history.length = 0;
     this.bestDistance = 0;
+    this.success = 0;
+    this.seed = (Math.random() * 2 ** 32) >>> 0;
+    this.setScenario(this.scenario.def.id, { applyDefaults: false });
   }
 }
