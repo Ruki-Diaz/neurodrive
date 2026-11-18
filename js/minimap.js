@@ -88,10 +88,10 @@
 
     const proj = getProjection(w, h);
 
-    // Subtle building blocks
+    // Barely visible building footprints (indigo 6%)
     const buildings = worldData.buildings || [];
     if (buildings.length > 0) {
-      ctx.fillStyle = 'rgba(99, 49, 251, 0.09)';
+      ctx.fillStyle = 'rgba(99, 49, 251, 0.06)';
       ctx.beginPath();
       for (let i = 0; i < buildings.length; i++) {
         const poly = buildings[i];
@@ -105,14 +105,14 @@
       ctx.fill();
     }
 
-    // Roads
+    // Muted Night-City Roads (indigo 22-35%)
     const roads = worldData.roads || [];
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Minor roads first
-    ctx.strokeStyle = 'rgba(99, 49, 251, 0.34)';
-    ctx.lineWidth = 1;
+    // Minor roads
+    ctx.strokeStyle = 'rgba(99, 49, 251, 0.22)';
+    ctx.lineWidth = 0.85;
     ctx.beginPath();
     for (let i = 0; i < roads.length; i++) {
       const r = roads[i];
@@ -128,9 +128,9 @@
     }
     ctx.stroke();
 
-    // Major roads brighter
-    ctx.strokeStyle = 'rgba(99, 49, 251, 0.72)';
-    ctx.lineWidth = 1.65;
+    // Major roads
+    ctx.strokeStyle = 'rgba(99, 49, 251, 0.36)';
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
     for (let i = 0; i < roads.length; i++) {
       const r = roads[i];
@@ -197,57 +197,52 @@
     const dest = st.destination || (route.length ? { x: route[route.length - 1][0], y: route[route.length - 1][1] } : null);
     const car = st.car || (route.length ? { x: route[0][0], y: route[0][1], headingDeg: 0 } : { x: 0, y: 0, headingDeg: 0 });
 
-    // Route polyline in glowing Mint
+    // Thin Mint route polyline (no glow)
     if (route.length >= 2) {
       ctx.save();
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
       ctx.lineJoin = 'round';
-
-      ctx.strokeStyle = 'rgba(136, 249, 192, 0.28)';
-      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = PALETTE.mint;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(proj.toX(route[0][0]), proj.toY(route[0][1]));
       for (let i = 1; i < route.length; i++) {
         ctx.lineTo(proj.toX(route[i][0]), proj.toY(route[i][1]));
       }
       ctx.stroke();
-
-      ctx.strokeStyle = PALETTE.mint;
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
       ctx.restore();
     }
 
-    // Destination target ring
+    // Destination target
     if (dest && Number.isFinite(dest.x) && Number.isFinite(dest.y)) {
       const dx = proj.toX(dest.x);
       const dy = proj.toY(dest.y);
       ctx.beginPath();
-      ctx.arc(dx, dy, 4, 0, Math.PI * 2);
+      ctx.arc(dx, dy, 3, 0, Math.PI * 2);
       ctx.fillStyle = PALETTE.onyx;
       ctx.fill();
-      ctx.lineWidth = 1.6;
+      ctx.lineWidth = 1.2;
       ctx.strokeStyle = PALETTE.mint;
       ctx.stroke();
     }
 
-    // Best Car Dot in Mint (pulsing)
+    // Best Car Dot in Mint (restrained pulse)
     if (car && Number.isFinite(car.x) && Number.isFinite(car.y)) {
       const cx = proj.toX(car.x);
       const cy = proj.toY(car.y);
       const now = performance.now();
-      const pulse = reducedMotionQuery.matches ? 0.4 : (now % 1400) / 1400;
+      const pulse = reducedMotionQuery.matches ? 0 : (now % 1800) / 1800;
 
-      // Expanding pulse ring
-      ctx.beginPath();
-      ctx.arc(cx, cy, 4 + pulse * 9, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(136, 249, 192, ${(1 - pulse) * 0.8})`;
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
+      if (pulse > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3 + pulse * 6, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(136, 249, 192, ${(1 - pulse) * 0.45})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
 
-      // Core car beacon
       ctx.beginPath();
-      ctx.arc(cx, cy, 3.8, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.fillStyle = PALETTE.mint;
       ctx.fill();
       ctx.lineWidth = 1.2;

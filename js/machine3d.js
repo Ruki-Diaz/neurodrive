@@ -240,15 +240,15 @@ function initMachineScene(root, fontFamily, options) {
     const embedded = options.embedded;
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Strictly rethemed to NeuroDrive palette: Onyx #01010D, Indigo #6331FB, Mint #88F9C0, White #FFFFFF
+    // Matte onyx / graphite metal palette with restrained Indigo accents & Mint indicator signal
     const palette = {
       indigo: 0x6331fb,
       mint: 0x88f9c0,
       white: 0xffffff,
       onyx: 0x01010d,
-      darkMetal: 0x0e0c24,
-      midMetal: 0x1b173c,
-      edgeMetal: 0x4b3ca8,
+      darkMetal: 0x0a0a16,
+      midMetal: 0x131324,
+      edgeMetal: 0x26263d,
     };
 
     const scene = new THREE.Scene();
@@ -324,51 +324,47 @@ function initMachineScene(root, fontFamily, options) {
     key.shadow.radius = 4;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x88f9c0, 2.8);
+    const rim = new THREE.DirectionalLight(0xb8b8d8, 1.4);
     rim.position.set(3, 7, -8);
     scene.add(rim);
 
-    const indigoGlow = new THREE.PointLight(0x6331fb, 30, 22, 2);
+    const indigoGlow = new THREE.PointLight(0x6331fb, 6, 18, 2);
     indigoGlow.position.set(-4, 5, 3);
     scene.add(indigoGlow);
-
-    const mintGlow = new THREE.PointLight(0x88f9c0, 18, 18, 2);
-    mintGlow.position.set(4, 4, 2);
-    scene.add(mintGlow);
 
     const mat = (color, metalness = 0.1, roughness = 0.4, extra = {}) =>
       new THREE.MeshStandardMaterial({ color, metalness, roughness, ...extra });
 
     const M = {
-      body: mat(palette.midMetal, 0.78, 0.28),
-      base: mat(palette.darkMetal, 0.86, 0.3),
-      edge: mat(palette.edgeMetal, 0.85, 0.24),
-      chrome: mat(0xd8d4ff, 0.92, 0.18),
-      dark: mat(palette.onyx, 0.5, 0.36),
-      rubber: mat(palette.onyx, 0.12, 0.65),
-      amber: mat(palette.indigo, 0.55, 0.26), // Rethemed amber -> Electric Indigo #6331FB
-      ivory: mat(0x251f54, 0.52, 0.28),      // Deep indigo housing
-      copper: mat(palette.mint, 0.82, 0.26),  // Rethemed copper -> Tropical Mint #88F9C0
-      black: mat(palette.onyx, 0, 0.6),
-      light: mat(palette.indigo, 0.2, 0.25, {
+      body: mat(palette.midMetal, 0.45, 0.54),
+      base: mat(palette.darkMetal, 0.52, 0.56),
+      edge: mat(palette.edgeMetal, 0.58, 0.42),
+      chrome: mat(0x9a9ab4, 0.72, 0.34),
+      dark: mat(palette.onyx, 0.32, 0.60),
+      rubber: mat(palette.onyx, 0.08, 0.78),
+      amber: mat(palette.indigo, 0.45, 0.42), // Indigo accent trim only
+      ivory: mat(0x18182c, 0.42, 0.55),       // Matte graphite housing
+      copper: mat(0x3a3a58, 0.65, 0.38),      // Brushed graphite metal for pipes & gears
+      black: mat(palette.onyx, 0, 0.7),
+      light: mat(palette.indigo, 0.2, 0.4, {
         emissive: palette.indigo,
-        emissiveIntensity: 1.65,
+        emissiveIntensity: 0.45,
       }),
-      mintLight: mat(palette.mint, 0.2, 0.22, {
+      mintLight: mat(palette.mint, 0.15, 0.35, {
         emissive: palette.mint,
-        emissiveIntensity: 1.75,
+        emissiveIntensity: 0.65,
       }),
-      whiteLight: mat(palette.white, 0.1, 0.3, {
+      whiteLight: mat(palette.white, 0.1, 0.4, {
+        emissive: palette.white,
+        emissiveIntensity: 0.35,
+      }),
+      green: mat(palette.mint, 0.1, 0.4, {
         emissive: palette.mint,
-        emissiveIntensity: 1.5,
+        emissiveIntensity: 0.55,
       }),
-      green: mat(palette.mint, 0.1, 0.28, {
-        emissive: palette.mint,
-        emissiveIntensity: 1.1,
-      }),
-      glass: mat(palette.indigo, 0.45, 0.16, {
+      glass: mat(palette.edgeMetal, 0.35, 0.25, {
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.16,
         depthWrite: false,
       }),
       paper: mat(palette.white, 0, 0.85),
@@ -501,12 +497,12 @@ function initMachineScene(root, fontFamily, options) {
     contact.position.y = -0.415;
     scene.add(contact);
 
-    // Base Platform
+    // Base Platform (matte onyx/graphite with subtle indigo front edge)
     box(machine, 12.8, 0.38, 8.25, 0, -0.09, 0, M.base, 0.17);
     box(machine, 12.6, 0.055, 8.08, 0, 0.13, 0, M.edge, 0.11);
     box(machine, 12.49, 0.09, 7.96, 0, 0.19, 0, M.body, 0.1);
     box(machine, 12.55, 0.027, 8.02, 0, -0.19, 0, M.dark, 0.06);
-    box(machine, 11.9, 0.026, 0.032, 0, -0.17, 4.115, M.mintLight, 0.01);
+    box(machine, 11.9, 0.02, 0.026, 0, -0.17, 4.115, M.light, 0.01);
 
     for (const x of [-5.6, 5.6]) {
       for (const z of [-3.35, 3.35]) {
@@ -523,15 +519,15 @@ function initMachineScene(root, fontFamily, options) {
 
     // Engraved Plate: NEURODRIVE / map - route - sensors - brain - evolution / Melbourne CBD
     const engraving = canvasTexture(1536, 176, (c, w, h) => {
-      c.fillStyle = '#01010D';
+      c.fillStyle = '#07071A';
       c.fillRect(0, 0, w, h);
-      c.strokeStyle = 'rgba(99, 49, 251, 0.65)';
-      c.lineWidth = 3;
+      c.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      c.lineWidth = 2;
       c.strokeRect(2, 2, w - 4, h - 4);
-      print(c, 'NEURODRIVE', 42, 78, 40, '#FFFFFF', 700);
-      print(c, '·  map  ·  route  ·  sensors  ·  brain  ·  evolution', 330, 78, 32, '#88F9C0', 500);
-      print(c, 'MELBOURNE CBD    /    HODDLE GRID AUTONOMOUS PIPELINE', 44, 134, 19, 'rgba(255,255,255,0.68)', 600);
-      print(c, 'CBD v2', 1365, 130, 23, '#88F9C0', 700);
+      print(c, 'NEURODRIVE', 42, 78, 38, 'rgba(255,255,255,0.92)', 700);
+      print(c, '/  map  -  route  -  sensors  -  brain  -  evolution', 320, 78, 30, 'rgba(255,255,255,0.58)', 500);
+      print(c, 'MELBOURNE CBD    /    HODDLE GRID AUTONOMOUS PIPELINE', 44, 134, 18, 'rgba(255,255,255,0.44)', 500);
+      print(c, 'V2.0', 1390, 130, 21, '#6331FB', 700);
     });
     const plate = screen(machine, 7.35, 0.84, -0.4, 0.25, 3.51, engraving);
     plate.rotation.x = -Math.PI / 2;
@@ -676,11 +672,13 @@ function initMachineScene(root, fontFamily, options) {
       const group = new THREE.Group();
       group.position.fromArray(d.pos);
       machine.add(group);
-      const glowMat = (i === 4 ? M.mintLight : M.light).clone();
-      glowMat.emissiveIntensity = 0.55;
+      // Single restrained mint indicator LED per station
+      const glowMat = M.mintLight.clone();
+      glowMat.emissiveIntensity = 0.45;
       box(group, 2.05, 0.12, 1.78, 0, 0.03, 0, M.dark, 0.1);
-      box(group, 1.97, 0.03, 1.7, 0, 0.12, 0, glowMat, 0.09);
+      box(group, 1.97, 0.03, 1.7, 0, 0.12, 0, M.edge, 0.09);
       box(group, 2.03, 0.17, 1.75, 0, 0.215, 0, M.body, 0.1);
+      ball(group, 0.048, 0.84, 0.32, 0.74, glowMat);
       for (const x of [-0.85, 0.85]) {
         for (const z of [-0.7, 0.7]) {
           screw(group, x, 0.311, z);
@@ -701,17 +699,17 @@ function initMachineScene(root, fontFamily, options) {
           [0.7, 0.58, 0.23],
         ],
         0.023,
-        M.mintLight
+        M.copper
       );
 
       const plaque = canvasTexture(512, 116, (c, w, h) => {
-        c.fillStyle = '#01010D';
+        c.fillStyle = '#07071A';
         c.fillRect(0, 0, w, h);
-        c.strokeStyle = 'rgba(99, 49, 251, 0.55)';
+        c.strokeStyle = 'rgba(255, 255, 255, 0.10)';
         c.lineWidth = 2;
         c.strokeRect(2, 2, w - 4, h - 4);
-        print(c, String(i + 1).padStart(2, '0'), 24, 76, 42, '#88F9C0', 700);
-        print(c, d.name.toUpperCase(), 111, 73, 34, '#FFFFFF', 600);
+        print(c, String(i + 1).padStart(2, '0'), 24, 74, 38, '#6331FB', 700);
+        print(c, d.name.toUpperCase(), 108, 72, 32, 'rgba(255,255,255,0.90)', 600);
       });
       screen(group, 1.54, 0.345, 0, 0.27, 0.891, plaque);
 
@@ -1202,13 +1200,13 @@ function initMachineScene(root, fontFamily, options) {
     const evoScreenTex = canvasTexture(512, 176, () => {});
     function drawEvolutionScreen(gen = liveGeneration, distM = liveBestDistM) {
       const c = evoScreenTex.ctx;
-      c.fillStyle = '#01010D';
+      c.fillStyle = '#07071A';
       c.fillRect(0, 0, 512, 176);
-      c.strokeStyle = '#88F9C0';
-      c.lineWidth = 3;
+      c.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      c.lineWidth = 2;
       c.strokeRect(2, 2, 508, 172);
-      print(c, `05 · EVOLUTION  ·  GEN ${gen}`, 22, 46, 22, '#88F9C0', 700);
-      print(c, `${Math.round(distM).toLocaleString()} m`, 24, 134, 62, '#FFFFFF', 700);
+      print(c, `05 / EVOLUTION  ·  GEN ${gen}`, 22, 46, 20, 'rgba(255,255,255,0.64)', 600);
+      print(c, `${Math.round(distM).toLocaleString()} m`, 24, 134, 58, '#88F9C0', 700);
       evoScreenTex.texture.needsUpdate = true;
     }
     drawEvolutionScreen(liveGeneration, liveBestDistM);
@@ -1892,13 +1890,13 @@ function initMachineScene(root, fontFamily, options) {
         s.group.position.y += spread * (i % 2 ? 0.32 : 0.55);
 
         if (s.pulseBoost > 0.01) {
-          s.pulseBoost = Math.max(0, s.pulseBoost - dt * 2.5);
+          s.pulseBoost = Math.max(0, s.pulseBoost - dt * 2.2);
         }
         const pulse = Math.pow(Math.max(0, Math.sin(tact - i * 0.9)), 7);
         const targetGlow =
           hovered === s.id || (cameraMode === 'station' && selected === s.id)
-            ? 3.5
-            : 0.55 + pulse * 0.65 + s.pulseBoost;
+            ? 1.15
+            : 0.35 + pulse * 0.3 + Math.min(1.2, s.pulseBoost * 0.35);
 
         s.glowMat.emissiveIntensity = THREE.MathUtils.lerp(
           s.glowMat.emissiveIntensity,

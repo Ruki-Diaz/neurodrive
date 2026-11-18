@@ -437,8 +437,8 @@
     ctx.scale(scale, scale);
     ctx.translate(-bounds.minX, -bounds.minY);
 
-    // Subtle metric coordinate grid (every 100m)
-    ctx.strokeStyle = 'rgba(99, 49, 251, 0.05)';
+    // Ultra-faint metric grid (every 100m)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
     ctx.lineWidth = 1 / scale;
     ctx.beginPath();
     const startGridX = Math.floor(bounds.minX / 100) * 100;
@@ -453,12 +453,12 @@
     }
     ctx.stroke();
 
-    // 2. Building Footprints (faint indigo fill + 1px lighter indigo edge)
+    // 2. Building Footprints (barely visible: indigo 6% fill, 10% hairline edge)
     const buildings = world.buildings || [];
     if (buildings.length > 0) {
-      ctx.fillStyle = 'rgba(99, 49, 251, 0.085)';
-      ctx.strokeStyle = 'rgba(99, 49, 251, 0.26)';
-      ctx.lineWidth = Math.max(0.6, 1 / scale);
+      ctx.fillStyle = 'rgba(99, 49, 251, 0.06)';
+      ctx.strokeStyle = 'rgba(99, 49, 251, 0.10)';
+      ctx.lineWidth = Math.max(0.5, 0.8 / scale);
 
       ctx.beginPath();
       for (let i = 0; i < buildings.length; i++) {
@@ -474,33 +474,18 @@
       ctx.stroke();
     }
 
-    // 3. Roads (layered for clean intersections: glow -> casing -> surface -> centerlines -> chevrons)
+    // 3. Muted Night-City Roads (indigo at 25-35% opacity, no outer glow)
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // 3a. Soft glow on major roads
-    for (let i = 0; i < roadMeta.length; i++) {
-      const rm = roadMeta[i];
-      if (!rm.isMajor) continue;
-      const pts = rm.points;
-      ctx.strokeStyle = 'rgba(99, 49, 251, 0.14)';
-      ctx.lineWidth = rm.width + 7;
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let j = 1; j < pts.length; j++) {
-        ctx.lineTo(pts[j][0], pts[j][1]);
-      }
-      ctx.stroke();
-    }
-
-    // 3b. Road outer casing (indigo edge)
+    // 3a. Road hairline outer edge
     for (let i = 0; i < roadMeta.length; i++) {
       const rm = roadMeta[i];
       const pts = rm.points;
       ctx.strokeStyle = rm.isMajor
-        ? 'rgba(99, 49, 251, 0.52)'
-        : 'rgba(99, 49, 251, 0.28)';
-      ctx.lineWidth = rm.width + 1.4;
+        ? 'rgba(99, 49, 251, 0.35)'
+        : 'rgba(99, 49, 251, 0.25)';
+      ctx.lineWidth = rm.width + 1.0;
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (let j = 1; j < pts.length; j++) {
@@ -509,7 +494,7 @@
       ctx.stroke();
     }
 
-    // 3c. Road surface ribbon (dark onyx base + indigo tint, major roads brighter)
+    // 3b. Road dark ribbon surface
     for (let i = 0; i < roadMeta.length; i++) {
       const rm = roadMeta[i];
       const pts = rm.points;
@@ -523,15 +508,15 @@
       ctx.stroke();
 
       ctx.strokeStyle = rm.isMajor
-        ? 'rgba(99, 49, 251, 0.24)'
-        : 'rgba(99, 49, 251, 0.13)';
+        ? 'rgba(99, 49, 251, 0.18)'
+        : 'rgba(99, 49, 251, 0.11)';
       ctx.lineWidth = rm.width;
       ctx.stroke();
     }
 
-    // 3d. Subtle centre divider on major multi-lane roads
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.11)';
-    ctx.lineWidth = Math.max(0.4, 0.8 / scale);
+    // 3c. Faint centre divider on major multi-lane roads
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = Math.max(0.35, 0.7 / scale);
     ctx.setLineDash([4, 6]);
     ctx.beginPath();
     for (let i = 0; i < roadMeta.length; i++) {
@@ -546,9 +531,9 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 3e. Subtle chevrons on one-way streets
-    ctx.strokeStyle = 'rgba(136, 249, 192, 0.34)';
-    ctx.lineWidth = Math.max(0.55, 1.1 / scale);
+    // 3d. Subtle chevrons on one-way streets
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = Math.max(0.45, 0.9 / scale);
     ctx.beginPath();
     for (let i = 0; i < roadMeta.length; i++) {
       const chevrons = roadMeta[i].chevrons;
@@ -556,7 +541,7 @@
         const ch = chevrons[c];
         const cos = Math.cos(ch.angle);
         const sin = Math.sin(ch.angle);
-        const size = 2.1;
+        const size = 1.9;
         const tipX = ch.x + cos * size;
         const tipY = ch.y + sin * size;
         const backX = ch.x - cos * size;
@@ -571,12 +556,12 @@
     }
     ctx.stroke();
 
-    // 4. Tram Lines (thin mint dotted lines)
+    // 4. Tram Lines (subtle dotted white/indigo lines)
     const trams = world.tram || [];
     if (trams.length > 0) {
-      ctx.strokeStyle = 'rgba(136, 249, 192, 0.55)';
-      ctx.lineWidth = Math.max(0.65, 1.25 / scale);
-      ctx.setLineDash([2.2, 3.4]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = Math.max(0.5, 1.0 / scale);
+      ctx.setLineDash([2, 3.5]);
       ctx.beginPath();
       for (let i = 0; i < trams.length; i++) {
         const pts = trams[i];
@@ -781,100 +766,63 @@
         ctx.translate(-c.x, -c.y);
       }
 
-      // 1A. Glowing Mint Dashed Route Line
+      // 1A. Thin Mint Route Line (2px screen width, no glow)
       if (route && route.length >= 2) {
         ctx.save();
-        ctx.lineCap = 'round';
+        ctx.lineCap = 'butt';
         ctx.lineJoin = 'round';
-
-        // Soft outer mint glow
-        ctx.strokeStyle = 'rgba(136, 249, 192, 0.24)';
-        ctx.lineWidth = Math.max(4.5, 10 / c.zoom);
+        ctx.strokeStyle = PALETTE.mint;
+        ctx.lineWidth = 2 / c.zoom;
         ctx.beginPath();
         ctx.moveTo(route[0][0], route[0][1]);
         for (let i = 1; i < route.length; i++) {
           ctx.lineTo(route[i][0], route[i][1]);
         }
         ctx.stroke();
-
-        // Crisp dashed mint core
-        const dashUnit = Math.max(3, 8 / c.zoom);
-        ctx.strokeStyle = PALETTE.mint;
-        ctx.lineWidth = Math.max(1.6, 3 / c.zoom);
-        ctx.setLineDash([dashUnit * 1.4, dashUnit]);
-        ctx.lineDashOffset = -((now * 0.015) % (dashUnit * 2.4));
-        ctx.stroke();
         ctx.restore();
       }
 
-      // 1B. Traffic Signals (dots coloured by hud.signals state within strict palette)
+      // 1B. Traffic Signals (crisp dots, no bloom halo)
       if (signals && signals.length > 0) {
-        const dotR = Math.max(1.6, 3.6 / c.zoom);
+        const dotR = 2.6 / c.zoom;
         for (let i = 0; i < signals.length; i++) {
           const sig = signals[i];
           if (sig.x < vMinX || sig.x > vMaxX || sig.y < vMinY || sig.y > vMaxY) continue;
 
           const st = sig.state || 'green';
           ctx.beginPath();
-          ctx.arc(sig.x, sig.y, dotR * 1.75, 0, Math.PI * 2);
-          if (st === 'green') {
-            ctx.fillStyle = 'rgba(136, 249, 192, 0.28)';
-          } else if (st === 'amber') {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-          } else {
-            ctx.fillStyle = 'rgba(99, 49, 251, 0.42)';
-          }
-          ctx.fill();
-
-          ctx.beginPath();
           ctx.arc(sig.x, sig.y, dotR, 0, Math.PI * 2);
           if (st === 'green') {
             ctx.fillStyle = PALETTE.mint;
           } else if (st === 'amber') {
-            ctx.fillStyle = PALETTE.white;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
           } else {
             ctx.fillStyle = PALETTE.indigo;
           }
           ctx.fill();
-
-          // Crisp rim on red signals for instant contrast
-          if (st === 'red') {
-            ctx.strokeStyle = PALETTE.white;
-            ctx.lineWidth = Math.max(0.4, 1 / c.zoom);
-            ctx.stroke();
-          }
         }
       }
 
-      // 1C. Destination Marker with Expanding Pulse Ring
+      // 1C. Destination Marker (restrained crisp ring, no glow)
       if (destination && Number.isFinite(destination.x) && Number.isFinite(destination.y)) {
-        const pulsePhase = (now % 1800) / 1800;
-        const baseR = Math.max(4, 9 / c.zoom);
-        const pulseR = baseR * (1 + pulsePhase * 2.4);
-
-        ctx.beginPath();
-        ctx.arc(destination.x, destination.y, pulseR, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(136, 249, 192, ${(1 - pulsePhase) * 0.75})`;
-        ctx.lineWidth = Math.max(0.8, 2 / c.zoom);
-        ctx.stroke();
-
+        const baseR = 5.5 / c.zoom;
         ctx.beginPath();
         ctx.arc(destination.x, destination.y, baseR, 0, Math.PI * 2);
         ctx.fillStyle = PALETTE.onyx;
         ctx.fill();
-        ctx.lineWidth = Math.max(1.2, 2.5 / c.zoom);
+        ctx.lineWidth = 1.5 / c.zoom;
         ctx.strokeStyle = PALETTE.mint;
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(destination.x, destination.y, baseR * 0.45, 0, Math.PI * 2);
+        ctx.arc(destination.x, destination.y, baseR * 0.42, 0, Math.PI * 2);
         ctx.fillStyle = PALETTE.mint;
         ctx.fill();
       }
 
       ctx.restore();
 
-      // --- PART 2: Screen-Space Typography (Rotated Street Labels, Landmarks, Destination Tag) ---
+      // --- PART 2: Screen-Space Typography (Muted Labels, Landmarks, Destination Tag) ---
       ctx.save();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       resetLabelCuller();
@@ -882,38 +830,38 @@
       const cosR = Math.cos(c.rotation);
       const sinR = Math.sin(c.rotation);
 
-      // 2A. Destination Floating Label
+      // 2A. Destination Tag (6px radius, hairline border, no mint outline)
       if (destination && Number.isFinite(destination.x) && Number.isFinite(destination.y)) {
         const sp = worldToScreen(destination.x, destination.y, c, cosR, sinR);
         if (sp.x >= -80 && sp.x <= c.w + 80 && sp.y >= -40 && sp.y <= c.h + 40) {
           const text = (destination.name || 'DESTINATION').toUpperCase();
-          ctx.font = '700 10px Inter, system-ui, sans-serif';
+          ctx.font = '600 9.5px Inter, system-ui, sans-serif';
           const tw = ctx.measureText(text).width;
-          const boxW = tw + 16;
-          const boxH = 20;
+          const boxW = tw + 14;
+          const boxH = 19;
           const bx = sp.x - boxW * 0.5;
-          const by = sp.y - 28;
+          const by = sp.y - 26;
 
           tryPlaceLabelBox(sp.x, by + boxH * 0.5, boxW * 0.5 + 6, boxH * 0.5 + 6);
 
-          ctx.fillStyle = 'rgba(1, 1, 13, 0.88)';
-          ctx.strokeStyle = PALETTE.mint;
-          ctx.lineWidth = 1.2;
+          ctx.fillStyle = 'rgba(7, 7, 26, 0.90)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+          ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.roundRect(bx, by, boxW, boxH, 999);
+          ctx.roundRect(bx, by, boxW, boxH, 4);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = PALETTE.mint;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(text, sp.x, by + boxH * 0.5 + 0.5);
         }
       }
 
-      // 2B. Landmark Pins with Names
+      // 2B. Landmark Pins with Hairline Labels
       const landmarks = (currentWorld && currentWorld.landmarks) || [];
-      ctx.font = '600 10.5px Inter, system-ui, sans-serif';
+      ctx.font = '500 9.5px Inter, system-ui, sans-serif';
       for (let i = 0; i < landmarks.length; i++) {
         const lm = landmarks[i];
         if (lm.x < vMinX || lm.x > vMaxX || lm.y < vMinY || lm.y > vMaxY) continue;
@@ -921,57 +869,48 @@
         if (sp.x < 20 || sp.x > c.w - 20 || sp.y < 20 || sp.y > c.h - 20) continue;
 
         const tw = ctx.measureText(lm.name).width;
-        const halfW = tw * 0.5 + 14;
-        const halfH = 12;
+        const halfW = tw * 0.5 + 12;
+        const halfH = 11;
         if (!tryPlaceLabelBox(sp.x, sp.y - 12, halfW, halfH)) continue;
 
-        // Diamond pin
-        ctx.save();
-        ctx.translate(sp.x, sp.y);
-        ctx.rotate(Math.PI * 0.25);
-        ctx.fillStyle = PALETTE.mint;
-        ctx.strokeStyle = PALETTE.onyx;
-        ctx.lineWidth = 1.5;
-        ctx.fillRect(-3.5, -3.5, 7, 7);
-        ctx.strokeRect(-3.5, -3.5, 7, 7);
-        ctx.restore();
+        // Small square marker
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.64)';
+        ctx.fillRect(sp.x - 2, sp.y - 2, 4, 4);
 
-        // Pill backdrop
-        const pillW = tw + 14;
-        const pillH = 18;
-        ctx.fillStyle = 'rgba(1, 1, 13, 0.82)';
-        ctx.strokeStyle = 'rgba(99, 49, 251, 0.55)';
+        const pillW = tw + 12;
+        const pillH = 17;
+        ctx.fillStyle = 'rgba(7, 7, 26, 0.85)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(sp.x - pillW * 0.5, sp.y - 24, pillW, pillH, 999);
+        ctx.roundRect(sp.x - pillW * 0.5, sp.y - 22, pillW, pillH, 4);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = PALETTE.white;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(lm.name, sp.x, sp.y - 15);
+        ctx.fillText(lm.name, sp.x, sp.y - 13.5);
       }
 
-      // 2C. Rotated Street Name Labels along roads (Inter, small-caps style, collision culled)
-      if (c.zoom >= 0.65) {
-        ctx.font = '600 9.5px Inter, system-ui, sans-serif';
+      // 2C. Street Name Labels (small white at 45% opacity, collision culled)
+      if (c.zoom >= 0.7) {
+        ctx.font = '500 9px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         for (let i = 0; i < labelCandidates.length; i++) {
           const cand = labelCandidates[i];
-          if (!cand.isMajor && c.zoom < 1.35) continue;
+          if (!cand.isMajor && c.zoom < 1.45) continue;
           if (cand.x < vMinX || cand.x > vMaxX || cand.y < vMinY || cand.y > vMaxY) continue;
 
           const sp = worldToScreen(cand.x, cand.y, c, cosR, sinR);
           if (sp.x < 40 || sp.x > c.w - 40 || sp.y < 24 || sp.y > c.h - 24) continue;
 
-          const approxW = cand.upper.length * 6.2 + 12;
+          const approxW = cand.upper.length * 5.8 + 12;
           if (!tryPlaceLabelBox(sp.x, sp.y, approxW * 0.5, 11)) continue;
 
           let screenAngle = cand.angle + c.rotation;
-          // Keep text upright
           if (screenAngle > Math.PI * 0.5) screenAngle -= Math.PI;
           if (screenAngle < -Math.PI * 0.5) screenAngle += Math.PI;
 
@@ -979,13 +918,11 @@
           ctx.translate(sp.x, sp.y);
           ctx.rotate(screenAngle);
 
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(1, 1, 13, 0.92)';
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = 'rgba(1, 1, 13, 0.90)';
           ctx.strokeText(cand.upper, 0, 0);
 
-          ctx.fillStyle = cand.isMajor
-            ? 'rgba(255, 255, 255, 0.82)'
-            : 'rgba(255, 255, 255, 0.56)';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
           ctx.fillText(cand.upper, 0, 0);
           ctx.restore();
         }

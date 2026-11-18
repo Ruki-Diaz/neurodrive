@@ -3,35 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NeuroDrive — Teach Cars to Drive Melbourne On Its Own</title>
-  <meta name="description" content="Self-driving cars that learn to navigate the real Melbourne CBD street network (Hoddle Grid) in your browser using OpenStreetMap data, A* routing, 7-ray sensors, and neuroevolution." />
+  <title>NeuroDrive — Autonomous Driving on the Melbourne CBD Grid</title>
+  <meta name="description" content="Self-driving cars that learn on the real Melbourne CBD street network (Hoddle Grid) in your browser using OpenStreetMap data, A* routing, 7-ray sensors, and neuroevolution." />
   <meta name="theme-color" content="#01010D" />
 
   <!-- Open Graph / Social Meta -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="NeuroDrive — Teach Cars to Drive Melbourne On Its Own" />
-  <meta property="og:description" content="Watch 100 autonomous cars evolve real-time neural networks across the real Melbourne CBD street grid. Real OpenStreetMap data, $0 to run, 100% free." />
+  <meta property="og:title" content="NeuroDrive — Autonomous Driving on the Melbourne CBD Grid" />
+  <meta property="og:description" content="100 autonomous agents learning real-time neural navigation across Melbourne CBD OpenStreetMap streets. $0 to run, 100% free." />
   <meta property="og:image" content="assets/og-image.svg" />
   <meta property="og:image:type" content="image/svg+xml" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="NeuroDrive — Teach Cars to Drive Melbourne On Its Own" />
-  <meta name="twitter:description" content="Self-driving cars that learn on the real Melbourne CBD street network. Real OpenStreetMap data, $0 to run, 100% free." />
+  <meta name="twitter:title" content="NeuroDrive — Autonomous Driving on the Melbourne CBD Grid" />
+  <meta name="twitter:description" content="Real OpenStreetMap streets, A* routing, 7-ray sensors, and neuroevolution in the browser." />
   <meta name="twitter:image" content="assets/og-image.svg" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
 
-  <!-- Google Fonts: Anton, Instrument Serif (italic), Inter -->
+  <!-- Google Fonts: Anton, Instrument Serif (italic), Inter, JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <!-- Stylesheet -->
   <link rel="stylesheet" href="css/style.css" />
 
-  <!-- Three.js Pinned Import Map for Landing 3D Machine -->
+  <!-- Pinned Three.js Import Map for 3D Pipeline Machine -->
   <script type="importmap">
   {
     "imports": {
@@ -43,427 +43,358 @@
   </script>
 </head>
 <body>
-  <a href="#workspace" class="skip-link">Skip to Melbourne CBD simulation workspace</a>
+  <a href="#workspace" class="skip-link">Skip to simulation</a>
 
-  <!-- Ambient Indigo Glows & Film Grain Overlay -->
-  <div class="ambient-glow" aria-hidden="true"></div>
-  <div class="grain-overlay" aria-hidden="true"></div>
-
-  <!-- Top Navigation -->
+  <!-- Top Instrument Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <a href="#" class="brand" aria-label="NeuroDrive Melbourne Home">
+      <a href="#" class="brand" aria-label="NeuroDrive Home">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="22" height="22" fill="none">
-            <path d="M16 18L7 6M16 18L16 4M16 18L25 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <rect x="11" y="13" width="10" height="15" rx="4" fill="#6331FB" stroke="#88F9C0" stroke-width="1.5"/>
-            <circle cx="16" cy="4" r="2" fill="#88F9C0"/>
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 13V3M3 7l5-4 5 4" stroke-linecap="square" />
           </svg>
         </span>
-        <span class="brand-name">NEURO<span class="brand-accent">DRIVE</span></span>
+        <span>NEURODRIVE</span>
+        <span class="brand-divider" aria-hidden="true"></span>
         <span class="brand-city-tag">MELBOURNE CBD</span>
       </a>
 
       <nav class="header-nav" aria-label="Primary">
-        <a href="#workspace" class="nav-link">Live Map</a>
-        <a href="#scenarios-section" class="nav-link">Scenarios</a>
-        <a href="#how-it-works" class="nav-link">How It Works</a>
+        <a href="#workspace" class="nav-link">01 / Simulation</a>
+        <a href="#how-it-works" class="nav-link">02 / Pipeline</a>
       </nav>
 
       <div class="header-meta">
-        <div class="shortcut-pills" aria-label="Keyboard shortcuts">
-          <span class="kbd-hint"><kbd>Space</kbd> Pause</span>
-          <span class="kbd-hint"><kbd>R</kbd> Reset</span>
-          <span class="kbd-hint"><kbd>S</kbd> Save</span>
+        <div class="shortcut-strip" aria-label="Keyboard shortcuts">
+          <span><kbd>Space</kbd>Pause</span>
+          <span><kbd>R</kbd>Reset</span>
+          <span><kbd>S</kbd>Save</span>
         </div>
-        <span id="engine-status-pill" class="status-pill">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="engine-status-label">Live CBD Grid</span>
+        <span class="live-indicator">
+          <span id="sim-indicator" class="live-dot" aria-hidden="true"></span>
+          <span id="engine-status-label">CBD LIVE</span>
         </span>
       </div>
     </div>
   </header>
 
   <main>
-    <!-- Hero Section with Embedded 3D Pipeline Machine -->
-    <section id="hero-section" class="hero hero-with-machine" aria-labelledby="hero-headline">
-      <!-- 3D Machine Stage (Right 58% on desktop >900px, Top 320px on mobile) -->
+    <!-- Hero Section -->
+    <section id="hero-section" class="hero" aria-labelledby="hero-headline">
       <div id="hero-machine" class="hero-machine-stage" aria-label="Interactive 3D NeuroDrive pipeline preview"></div>
 
       <div class="container hero-inner">
         <div class="hero-copy">
-          <div class="hero-eyebrow fade-up">
-            <span class="eyebrow-dot" aria-hidden="true"></span>
-            <span>HODDLE GRID · 37.814° S, 144.964° E</span>
-          </div>
+          <span class="hero-kicker">HODDLE GRID · 37.814° S, 144.964° E</span>
 
-          <h1 id="hero-headline" class="hero-title fade-up">
+          <h1 id="hero-headline" class="hero-title">
             TEACH CARS TO DRIVE MELBOURNE
             <span class="hero-serif">on its own</span>
           </h1>
 
-          <p class="hero-subtitle fade-up">
-            Autonomous neuroevolution across the real Melbourne CBD street network. Watch 100 vehicles master one-way laneways, Hoddle Grid intersections, traffic signals, and A* routes in real time.
+          <p class="hero-subtitle">
+            Real-time neuroevolution over Melbourne’s OpenStreetMap street graph. One hundred autonomous agents learn one-way laneways, A* routes, traffic flow, and signal timing directly in the browser.
           </p>
 
-          <div class="hero-actions fade-up">
-            <a href="#workspace" id="hero-cta" class="btn-cta">
-              <span>Start training</span>
-              <span class="cta-arrow" aria-hidden="true">→</span>
-            </a>
+          <div class="hero-actions">
+            <a href="#workspace" id="hero-cta" class="btn-primary">Start training</a>
+            <a href="#how-it-works" class="btn-text-link">Inspect 3D pipeline</a>
           </div>
 
-          <ul class="hero-chips fade-up" aria-label="Key highlights">
-            <li class="chip">
-              <span class="chip-dot" aria-hidden="true"></span>
-              <span>Real OpenStreetMap data</span>
-            </li>
-            <li class="chip">
-              <span class="chip-dot" aria-hidden="true"></span>
-              <span>$0 to run</span>
-            </li>
-            <li class="chip">
-              <span class="chip-dot" aria-hidden="true"></span>
-              <span>100% free</span>
-            </li>
-          </ul>
+          <p class="hero-meta-line">OPENSTREETMAP / 2,322 ROADS / 517 SIGNALS / 100 AGENTS / $0</p>
         </div>
       </div>
     </section>
 
-    <!-- App / Simulation Section -->
-    <section id="workspace" class="workspace-section" aria-label="Melbourne CBD Simulation Workspace">
+    <!-- 01 / SIMULATION -->
+    <section id="workspace" class="workspace-section section-rule" aria-labelledby="sim-section-title">
       <div class="container">
-        <!-- Telemetry Stat Row (5 Glass Cards including Success-Rate Ring & Sparkline) -->
-        <div class="stats-grid fade-up">
-          <!-- Generation Card -->
-          <article class="glass-card stat-card" aria-label="Current generation">
-            <div class="stat-header">
-              <span class="stat-label">Generation</span>
-              <span class="stat-tag">EVOLUTION</span>
-            </div>
-            <div class="stat-value-row">
-              <span id="stat-generation" class="stat-number" aria-live="polite">1</span>
-            </div>
-            <p class="stat-foot" id="stat-gen-note">Mutating top neural weights</p>
-          </article>
+        <div class="section-header-bar">
+          <div class="section-num-title">
+            <span class="section-code">01 / SIMULATION</span>
+            <h2 id="sim-section-title" class="section-title">LIVE TELEMETRY</h2>
+          </div>
+          <span class="section-meta" id="toast-feedback" role="status" aria-live="polite">READY</span>
+        </div>
 
-          <!-- Alive Card -->
-          <article class="glass-card stat-card" aria-label="Active cars">
-            <div class="stat-header">
-              <span class="stat-label">Alive</span>
-              <span class="stat-tag" id="stat-alive-pct">100%</span>
+        <!-- Flat 5-Cell Instrument Telemetry Strip -->
+        <div class="telemetry-strip">
+          <!-- Generation -->
+          <div class="telemetry-cell">
+            <div class="cell-head">
+              <span class="micro-label">Generation</span>
+              <span class="cell-sub">COHORT</span>
             </div>
-            <div class="stat-value-row">
-              <span id="stat-alive" class="stat-number" aria-live="polite">100</span>
-              <span class="stat-denom">/ <span id="stat-population">100</span></span>
+            <div class="cell-value-row">
+              <span id="stat-generation" class="metric-val" aria-live="polite">1</span>
             </div>
-            <div class="stat-progress" aria-hidden="true">
-              <div id="alive-progress-bar" class="stat-progress-fill"></div>
-            </div>
-          </article>
+            <span class="cell-foot" id="stat-gen-note">Elite weight inheritance</span>
+          </div>
 
-          <!-- Best Distance Card (Metres) -->
-          <article class="glass-card stat-card" aria-label="Best route distance in metres">
-            <div class="stat-header">
-              <span class="stat-label">Best distance</span>
-              <span class="stat-tag stat-tag-mint">ROUTE</span>
+          <!-- Active Agents -->
+          <div class="telemetry-cell">
+            <div class="cell-head">
+              <span class="micro-label">Alive</span>
+              <span class="cell-sub" id="stat-alive-pct">100%</span>
             </div>
-            <div class="stat-value-row">
-              <span id="stat-distance" class="stat-number stat-number-mint" aria-live="polite">0</span>
-              <span class="stat-unit">m</span>
+            <div class="cell-value-row">
+              <span id="stat-alive" class="metric-val" aria-live="polite">100</span>
+              <span class="metric-unit">/ <span id="stat-population">100</span></span>
             </div>
-            <p class="stat-foot" id="stat-peak-note">All-time peak: 0 m</p>
-          </article>
+            <div class="hairline-bar" aria-hidden="true">
+              <div id="alive-progress-bar" class="hairline-bar-fill"></div>
+            </div>
+          </div>
 
-          <!-- Success-Rate Ring Card -->
-          <article class="glass-card stat-card success-card" aria-label="Destination arrival success rate">
-            <div class="stat-header">
-              <span class="stat-label">Success Rate</span>
-              <span class="stat-tag stat-tag-mint">≥70% NEXT</span>
+          <!-- Best Distance (Single Signal Metric in Mint) -->
+          <div class="telemetry-cell">
+            <div class="cell-head">
+              <span class="micro-label">Best Distance</span>
+              <span class="cell-sub">ROUTE</span>
             </div>
-            <div class="success-ring-row">
-              <div class="ring-box" aria-hidden="true">
-                <svg class="success-ring-svg" viewBox="0 0 52 52" width="52" height="52">
-                  <circle class="ring-track" cx="26" cy="26" r="21" />
-                  <circle id="success-ring-circle" class="ring-progress" cx="26" cy="26" r="21" stroke-dasharray="131.95" stroke-dashoffset="131.95" />
-                </svg>
+            <div class="cell-value-row">
+              <span id="stat-distance" class="metric-val metric-val-signal" aria-live="polite">0</span>
+              <span class="metric-unit">m</span>
+            </div>
+            <span class="cell-foot" id="stat-peak-note">Peak: 0 m</span>
+          </div>
+
+          <!-- Arrival Success Rate (Thin 2px SVG Arc) -->
+          <div class="telemetry-cell">
+            <div class="cell-head">
+              <span class="micro-label">Success Rate</span>
+              <span class="cell-sub">ADV ≥70%</span>
+            </div>
+            <div class="success-row">
+              <svg class="success-ring-svg" viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+                <circle class="ring-track" cx="20" cy="20" r="17" />
+                <circle id="success-ring-circle" class="ring-progress" cx="20" cy="20" r="17" stroke-dasharray="106.81" stroke-dashoffset="106.81" />
+              </svg>
+              <div>
+                <div id="stat-success" class="metric-val" aria-live="polite">0%</div>
+                <div class="cell-foot">Destination reached</div>
               </div>
-              <div class="success-meta">
-                <span id="stat-success" class="stat-number stat-number-sm" aria-live="polite">0%</span>
-                <span class="stat-foot" id="stat-success-note">Reached destination</span>
-              </div>
             </div>
-          </article>
+          </div>
 
-          <!-- Sparkline History Card -->
-          <article class="glass-card stat-card spark-card" aria-label="Fitness history in metres across generations">
-            <div class="stat-header">
-              <span class="stat-label">Fitness (m)</span>
-              <span class="stat-tag" id="spark-Summary">GEN HISTORY</span>
+          <!-- History Sparkline -->
+          <div class="telemetry-cell">
+            <div class="cell-head">
+              <span class="micro-label">Distance History</span>
+              <span class="cell-sub" id="spark-Summary">LIVE</span>
             </div>
             <div class="spark-wrap">
-              <canvas id="spark" width="260" height="60" aria-label="Sparkline chart of generation best distances in metres"></canvas>
+              <canvas id="spark" width="240" height="44" aria-label="Generation best distance sparkline in metres"></canvas>
             </div>
-          </article>
-        </div>
-
-        <!-- Scenario Curriculum Picker -->
-        <div id="scenarios-section" class="scenarios-bar fade-up" aria-label="Driving curriculum scenarios">
-          <div class="scenarios-header">
-            <div class="card-title-group">
-              <span class="eyebrow-dot" aria-hidden="true"></span>
-              <h2 class="scenarios-title">Melbourne CBD Curriculum</h2>
-              <span class="scenarios-sub">Auto-advances at ≥70% arrival success</span>
-            </div>
-          </div>
-          <div id="scenario-grid" class="scenario-grid" role="radiogroup" aria-label="Select driving scenario">
-            <!-- Populated dynamically by js/ui.js from state.scenarios -->
           </div>
         </div>
 
-        <!-- Main Simulator Split Grid -->
-        <div class="sim-layout">
-          <!-- Left: Night-City Map Canvas Card with Live HUD & Minimap -->
-          <div class="glass-card road-card fade-up">
-            <div class="card-bar">
-              <div class="card-title-group">
-                <span id="sim-indicator" class="pulse-dot" aria-hidden="true"></span>
-                <h2 class="card-title">Melbourne CBD Live Telemetry</h2>
+        <!-- 12-Column Simulation Workspace -->
+        <div class="sim-grid">
+          <!-- Left 8 Columns: Night-City Map + Compact Scenario Table -->
+          <div class="map-column">
+            <!-- Map Stage Panel -->
+            <div class="panel road-panel">
+              <div class="panel-head">
+                <div class="panel-title-group">
+                  <span class="panel-title">Melbourne CBD Road Network</span>
+                </div>
+                <span class="panel-tag">METRIC SCALE · 40 KM/H CBD LIMIT</span>
               </div>
-              <div class="card-badges">
-                <span class="mini-badge">Leader: <strong class="mint-text">Mint</strong></span>
-                <span class="mini-badge">A* Route: <strong class="mint-text">Dashed</strong></span>
-                <span class="mini-badge">Tram: <strong class="mint-text">Dotted</strong></span>
+
+              <div class="road-stage">
+                <canvas id="road" width="840" height="620" aria-label="Melbourne CBD autonomous driving map"></canvas>
+
+                <!-- Restrained Terminal HUD -->
+                <div class="map-hud" aria-label="Vehicle telemetry overlay">
+                  <!-- Top-Left: Speed, Limit, Street, Signal -->
+                  <div class="hud-box hud-top-left">
+                    <div class="hud-speed-row">
+                      <div class="hud-speed-readout">
+                        <span id="hud-speed" class="hud-speed-val">0</span>
+                        <span class="hud-speed-unit">km/h</span>
+                      </div>
+                      <span class="speed-limit-box" title="Street speed limit">LIM <span id="hud-limit">40</span></span>
+                    </div>
+
+                    <div class="hud-street-block">
+                      <span class="micro-label">Street</span>
+                      <span id="hud-street" class="hud-street-name">Swanston Street</span>
+                    </div>
+
+                    <div class="hud-signal-row" title="Next traffic signal state">
+                      <span id="hud-signal-dot" class="signal-lamp signal-green" aria-hidden="true"></span>
+                      <span id="hud-signal-text">Signals active</span>
+                    </div>
+                  </div>
+
+                  <!-- Top-Right: Destination & Route Progress -->
+                  <div class="hud-box hud-top-right">
+                    <div class="hud-dest-head">
+                      <span class="micro-label">Destination</span>
+                      <span id="hud-route-pct" class="hud-pct">0%</span>
+                    </div>
+                    <div id="hud-destination" class="hud-dest-name">Queen Victoria Market</div>
+                    <div class="hud-route-bar" aria-hidden="true">
+                      <div id="hud-route-fill" class="hud-route-fill"></div>
+                    </div>
+                  </div>
+
+                  <!-- Bottom-Left: Camera Tabs & Zoom -->
+                  <div class="hud-box hud-bottom-left" role="group" aria-label="Camera controls">
+                    <div class="hud-tabs">
+                      <button type="button" class="hud-tab-btn is-active" data-view="follow">Follow</button>
+                      <button type="button" class="hud-tab-btn" data-view="overview">Overview</button>
+                    </div>
+                    <span class="hud-divider" aria-hidden="true"></span>
+                    <div class="hud-zoom-group">
+                      <button type="button" id="btn-zoom-out" class="hud-zoom-btn" aria-label="Zoom out">-</button>
+                      <button type="button" id="btn-zoom-in" class="hud-zoom-btn" aria-label="Zoom in">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Bottom-Right: Collapsible Whole-CBD Minimap -->
+                  <div id="minimap-container" class="hud-box hud-bottom-right">
+                    <div class="minimap-head">
+                      <span class="micro-label">CBD Overview</span>
+                      <button type="button" id="btn-minimap-toggle" class="minimap-toggle-btn" aria-expanded="true" aria-controls="minimap-body">
+                        Hide
+                      </button>
+                    </div>
+                    <div id="minimap-body" class="minimap-body">
+                      <canvas id="minimap" width="176" height="132" aria-label="Melbourne CBD overview minimap"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel-foot">
+                <div class="legend-group">
+                  <span class="legend-item"><span class="swatch swatch-mint"></span>Best Car / A* Route</span>
+                  <span class="legend-item"><span class="swatch swatch-indigo"></span>Cohort (20%)</span>
+                  <span class="legend-item"><span class="swatch swatch-white"></span>Traffic</span>
+                </div>
+                <span>OSM Hoddle Grid</span>
               </div>
             </div>
 
-            <!-- Map Stage with Floating Glass HUD Overlays -->
-            <div class="road-stage">
-              <canvas id="road" width="760" height="640" aria-label="Melbourne CBD autonomous driving map"></canvas>
-
-              <!-- Live HUD Overlay Layer -->
-              <div class="map-hud" aria-label="Live vehicle telemetry overlay">
-                <!-- Top-Left: Speedometer + Limit Sign + Street + Signal Indicator -->
-                <div class="hud-card hud-top-left">
-                  <div class="hud-speed-block">
-                    <div class="hud-speed-readout">
-                      <span id="hud-speed" class="hud-speed-val">0</span>
-                      <span class="hud-speed-unit">km/h</span>
-                    </div>
-                    <div class="speed-limit-sign" title="Current Street Speed Limit">
-                      <span id="hud-limit">40</span>
-                    </div>
-                  </div>
-
-                  <div class="hud-street-block">
-                    <span class="hud-micro-label">CURRENT STREET</span>
-                    <span id="hud-street" class="hud-street-name">Swanston Street</span>
-                  </div>
-
-                  <div class="hud-signal-pill" title="Next Traffic Signal State">
-                    <span id="hud-signal-dot" class="signal-lamp signal-green" aria-hidden="true"></span>
-                    <span id="hud-signal-text" class="hud-signal-label">Signals Active</span>
-                  </div>
-                </div>
-
-                <!-- Top-Right: Destination & Route Progress -->
-                <div class="hud-card hud-top-right">
-                  <div class="hud-dest-header">
-                    <span class="hud-micro-label">DESTINATION</span>
-                    <span id="hud-route-pct" class="hud-pct-badge">0%</span>
-                  </div>
-                  <div id="hud-destination" class="hud-dest-name">Queen Victoria Market</div>
-                  <div class="hud-route-progress" aria-hidden="true">
-                    <div id="hud-route-bar" class="hud-route-fill"></div>
-                  </div>
-                </div>
-
-                <!-- Bottom-Left: Camera View & Zoom Controls -->
-                <div class="hud-card hud-bottom-left" role="group" aria-label="Camera view and zoom controls">
-                  <div class="hud-view-switch">
-                    <button type="button" class="hud-chip-btn is-active" data-view="follow" title="Follow leading car">Follow</button>
-                    <button type="button" class="hud-chip-btn" data-view="overview" title="Overview whole route">Overview</button>
-                  </div>
-                  <div class="hud-zoom-btns">
-                    <button type="button" id="btn-zoom-out" class="hud-icon-btn" aria-label="Zoom out" title="Zoom out">−</button>
-                    <button type="button" id="btn-zoom-in" class="hud-icon-btn" aria-label="Zoom in" title="Zoom in">+</button>
-                  </div>
-                </div>
-
-                <!-- Bottom-Right: Collapsible CBD Minimap -->
-                <div id="minimap-container" class="hud-card hud-bottom-right">
-                  <div class="minimap-header">
-                    <span class="hud-micro-label">CBD MINIMAP</span>
-                    <button type="button" id="btn-minimap-toggle" class="minimap-toggle-btn" aria-expanded="true" aria-controls="minimap-body">
-                      Hide
-                    </button>
-                  </div>
-                  <div id="minimap-body" class="minimap-body">
-                    <canvas id="minimap" width="188" height="142" aria-label="Melbourne CBD overview minimap"></canvas>
-                  </div>
-                </div>
+            <!-- Compact Scenario Curriculum Table -->
+            <div id="scenarios-section" class="panel scenario-panel" aria-label="Curriculum scenarios">
+              <div class="panel-head">
+                <span class="panel-title">Curriculum Scenarios</span>
+                <span class="panel-tag">DIFFICULTY</span>
               </div>
-            </div>
-
-            <div class="card-footer-bar">
-              <span class="legend-item"><span class="swatch swatch-mint"></span>Best Car + 7 Lidar Rays</span>
-              <span class="legend-item"><span class="swatch swatch-indigo"></span>Cohort (α 0.25)</span>
-              <span class="legend-item"><span class="swatch swatch-white"></span>AI Traffic</span>
-              <span class="legend-item"><span class="swatch swatch-route"></span>A* Waypoint Route</span>
+              <div id="scenario-grid" class="scenario-table" role="radiogroup" aria-label="Select driving scenario">
+                <!-- Populated dynamically by js/ui.js -->
+              </div>
             </div>
           </div>
 
-          <!-- Right: Network Visualizer + Control Panel -->
-          <div class="side-column">
-            <!-- Network Visualizer Card -->
-            <section class="glass-card network-card fade-up" aria-labelledby="network-heading">
-              <div class="card-bar">
-                <div class="card-title-group">
-                  <h2 id="network-heading" class="card-title">Live Neural Network</h2>
-                  <span class="topology-pill">12 → 14 → 2 · tanh</span>
-                </div>
-                <div class="net-legend" aria-label="Synapse weight polarity">
-                  <span class="net-key"><i class="dot-mint"></i>+ Weight</span>
-                  <span class="net-key"><i class="dot-indigo"></i>− Weight</span>
-                </div>
+          <!-- Right 4 Columns: Network Visualizer + Instrument Controls -->
+          <div class="inspector-column">
+            <!-- Live Neural Network Panel -->
+            <section class="panel" aria-labelledby="network-heading">
+              <div class="panel-head">
+                <h3 id="network-heading" class="panel-title">Neural Network</h3>
+                <span class="panel-tag">12-14-2 · TANH</span>
               </div>
-
-              <div class="network-stage">
-                <canvas id="network" width="460" height="230" aria-label="Real-time neural network visualizer"></canvas>
-              </div>
-
-              <div class="network-io-labels" aria-hidden="true">
-                <span>12 In: 7 Rays · Speed · Bearing (sin/cos) · Next Signal</span>
-                <span>2 Out: Steer · Accel/Brake</span>
+              <div class="network-body">
+                <div class="network-stage">
+                  <canvas id="network" width="420" height="210" aria-label="Live neural network activations and weights"></canvas>
+                </div>
+                <div class="network-io-labels" aria-hidden="true">
+                  <span>IN: 7 RAYS · SPD · BRG · SIG</span>
+                  <span>OUT: STEER · ACCEL</span>
+                </div>
               </div>
             </section>
 
-            <!-- Control Panel Card -->
-            <section class="glass-card controls-card fade-up" aria-labelledby="controls-heading">
-              <div class="card-bar">
-                <div class="card-title-group">
-                  <h2 id="controls-heading" class="card-title">Evolution &amp; Grid Controls</h2>
-                </div>
-                <span id="toast-feedback" class="toast-pill" role="status" aria-live="polite">Ready</span>
+            <!-- Evolution & Environment Controls Panel -->
+            <section class="panel" aria-labelledby="controls-heading">
+              <div class="panel-head">
+                <h3 id="controls-heading" class="panel-title">Control Parameters</h3>
+                <span class="panel-tag">BRAIN.V2</span>
               </div>
 
-              <!-- Primary Simulation Actions -->
-              <div class="action-group" role="group" aria-label="Simulation playback and brain storage">
-                <div class="primary-buttons">
-                  <button type="button" id="btn-start-pause" class="pill-btn pill-btn-mint" aria-pressed="false">
-                    <span id="btn-start-pause-icon" aria-hidden="true">❚❚</span>
+              <div class="controls-body">
+                <!-- Playback Actions -->
+                <div class="btn-grid-2" role="group" aria-label="Simulation playback">
+                  <button type="button" id="btn-start-pause" class="ctrl-btn ctrl-btn-primary" aria-pressed="false">
                     <span id="btn-start-pause-text">Pause</span>
                   </button>
-                  <button type="button" id="btn-reset" class="pill-btn pill-btn-secondary" title="Shortcut: R">
-                    <span aria-hidden="true">↺</span>
-                    <span>Reset</span>
+                  <button type="button" id="btn-reset" class="ctrl-btn" title="Shortcut: R">Reset</button>
+                </div>
+
+                <!-- Brain Storage Actions -->
+                <div class="btn-grid-3" role="group" aria-label="Brain persistence">
+                  <button type="button" id="btn-save" class="ctrl-btn ctrl-btn-ghost" title="Shortcut: S">Save</button>
+                  <button type="button" id="btn-load" class="ctrl-btn ctrl-btn-ghost">Load</button>
+                  <button type="button" id="btn-discard" class="ctrl-btn ctrl-btn-ghost">Discard</button>
+                </div>
+
+                <hr class="ctrl-divider" />
+
+                <!-- Toggles: Traffic, Signals, View -->
+                <div class="toggle-row" role="group" aria-label="Environment toggles">
+                  <button type="button" id="toggle-traffic" class="toggle-btn is-on" aria-pressed="true">
+                    <span>Traffic</span>
+                    <span class="toggle-indicator" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="toggle-signals" class="toggle-btn is-on" aria-pressed="true">
+                    <span>Signals</span>
+                    <span class="toggle-indicator" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="toggle-view" class="toggle-btn" aria-pressed="false">
+                    <span id="toggle-view-label">Follow</span>
+                    <span class="toggle-indicator" aria-hidden="true"></span>
                   </button>
                 </div>
 
-                <div class="brain-buttons">
-                  <button type="button" id="btn-save" class="pill-btn pill-btn-ghost" title="Save best brain to localStorage (Shortcut: S)">
-                    <span>Save brain</span>
-                  </button>
-                  <button type="button" id="btn-load" class="pill-btn pill-btn-ghost" title="Load saved brain from localStorage">
-                    <span>Load brain</span>
-                  </button>
-                  <button type="button" id="btn-discard" class="pill-btn pill-btn-ghost pill-btn-danger" title="Clear saved brain from localStorage">
-                    <span>Discard</span>
-                  </button>
-                </div>
-              </div>
+                <hr class="ctrl-divider" />
 
-              <hr class="control-divider" />
-
-              <!-- Environment Toggles: Traffic, Signals, Camera View -->
-              <div class="toggles-grid" role="group" aria-label="Environment and camera toggles">
-                <button type="button" id="toggle-traffic" class="toggle-chip is-on" aria-pressed="true">
-                  <span class="toggle-dot" aria-hidden="true"></span>
-                  <span>Traffic</span>
-                </button>
-
-                <button type="button" id="toggle-signals" class="toggle-chip is-on" aria-pressed="true">
-                  <span class="toggle-dot" aria-hidden="true"></span>
-                  <span>Signals</span>
-                </button>
-
-                <button type="button" id="toggle-view" class="toggle-chip" aria-pressed="false" title="Switch between Follow and Overview camera">
-                  <span class="toggle-dot" aria-hidden="true"></span>
-                  <span id="toggle-view-label">View: Follow</span>
-                </button>
-              </div>
-
-              <hr class="control-divider" />
-
-              <!-- Sliders: Mutation & Traffic -->
-              <div class="sliders-stack">
-                <div class="control-row">
-                  <div class="control-label-line">
-                    <label for="slider-mutation" class="control-label">Mutation Rate</label>
-                    <output id="val-mutation" for="slider-mutation" class="control-readout">10%</output>
-                  </div>
-                  <input
-                    type="range"
-                    id="slider-mutation"
-                    class="mint-slider"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value="0.1"
-                  />
-                  <div class="slider-captions" aria-hidden="true">
-                    <span>0% (Clone best)</span>
-                    <span>50% (Explore)</span>
-                    <span>100% (Chaos)</span>
-                  </div>
-                </div>
-
-                <div class="control-row">
-                  <div class="control-label-line">
-                    <label for="slider-traffic" class="control-label">Traffic Density</label>
-                    <output id="val-traffic" for="slider-traffic" class="control-readout">50%</output>
-                  </div>
-                  <input
-                    type="range"
-                    id="slider-traffic"
-                    class="mint-slider"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value="0.5"
-                  />
-                  <div class="slider-captions" aria-hidden="true">
-                    <span>0% (Clear CBD)</span>
-                    <span>50% (Active)</span>
-                    <span>100% (Peak hour)</span>
-                  </div>
-                </div>
-              </div>
-
-              <hr class="control-divider" />
-
-              <!-- Segmented Controls: Population & Camera View -->
-              <div class="segmented-grid">
-                <div class="control-row">
-                  <span class="control-label" id="label-population">Population</span>
-                  <div class="segmented-control" role="radiogroup" aria-labelledby="label-population">
-                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-population="50">50</button>
-                    <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-population="100">100</button>
-                    <button type="button" class="seg-btn" role="radio" aria-checked="false" data-population="200">200</button>
-                  </div>
-                </div>
-
-                <div class="control-row">
-                  <span class="control-label" id="label-camera">Camera Mode &amp; Zoom</span>
-                  <div class="camera-bar">
-                    <div class="segmented-control" role="radiogroup" aria-labelledby="label-camera">
-                      <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-view="follow">Follow</button>
-                      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-view="overview">Overview</button>
+                <!-- Sliders: Mutation & Traffic -->
+                <div class="slider-group">
+                  <div class="control-block">
+                    <div class="control-top">
+                      <label for="slider-mutation" class="control-label">Mutation rate</label>
+                      <output id="val-mutation" for="slider-mutation" class="control-val">10%</output>
                     </div>
-                    <div class="zoom-pair">
-                      <button type="button" id="panel-zoom-out" class="seg-zoom-btn" aria-label="Zoom out">−</button>
-                      <button type="button" id="panel-zoom-in" class="seg-zoom-btn" aria-label="Zoom in">+</button>
+                    <input type="range" id="slider-mutation" class="range-input" min="0" max="1" step="0.01" value="0.1" />
+                  </div>
+
+                  <div class="control-block">
+                    <div class="control-top">
+                      <label for="slider-traffic" class="control-label">Traffic density</label>
+                      <output id="val-traffic" for="slider-traffic" class="control-val">50%</output>
+                    </div>
+                    <input type="range" id="slider-traffic" class="range-input" min="0" max="1" step="0.05" value="0.5" />
+                  </div>
+                </div>
+
+                <hr class="ctrl-divider" />
+
+                <!-- Flat Tab Rows: Population & Camera -->
+                <div class="tabs-grid">
+                  <div class="control-block">
+                    <span class="micro-label" id="label-population">Population</span>
+                    <div class="tab-row" role="radiogroup" aria-labelledby="label-population">
+                      <button type="button" class="tab-btn" role="radio" aria-checked="false" data-population="50">50</button>
+                      <button type="button" class="tab-btn is-active" role="radio" aria-checked="true" data-population="100">100</button>
+                      <button type="button" class="tab-btn" role="radio" aria-checked="false" data-population="200">200</button>
+                    </div>
+                  </div>
+
+                  <div class="control-block">
+                    <span class="micro-label" id="label-camera">Camera</span>
+                    <div class="camera-control-wrap">
+                      <div class="tab-row" role="radiogroup" aria-labelledby="label-camera">
+                        <button type="button" class="tab-btn is-active" role="radio" aria-checked="true" data-view="follow">Follow</button>
+                        <button type="button" class="tab-btn" role="radio" aria-checked="false" data-view="overview">All</button>
+                      </div>
+                      <div class="zoom-inline">
+                        <button type="button" id="panel-zoom-out" class="hud-zoom-btn" aria-label="Zoom out">-</button>
+                        <button type="button" id="panel-zoom-in" class="hud-zoom-btn" aria-label="Zoom in">+</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -474,79 +405,70 @@
       </div>
     </section>
 
-    <!-- Interactive "How It Works" Section with Full 3D Machine + 5-Stage Pipeline Walkthrough -->
-    <section id="how-it-works" class="architecture-section" aria-labelledby="arch-heading">
+    <!-- 02 / PIPELINE — Interactive 3D Machine & Architecture Reference -->
+    <section id="how-it-works" class="architecture-section section-rule" aria-labelledby="arch-heading">
       <div class="container">
-        <div class="section-head fade-up">
-          <span class="section-kicker">INTERACTIVE 3D ARCHITECTURE</span>
-          <h2 id="arch-heading" class="section-title">
-            HOW NEURODRIVE <span class="serif-mint">works</span>
-          </h2>
-          <p class="section-subtitle">
-            Explore the five-station autonomous pipeline in 3D. Switch between <strong>Assembled</strong>, <strong>Cutaway</strong>, <strong>Stations</strong>, and <strong>One drive</strong>, or click any station to inspect its role.
-          </p>
+        <div class="section-header-bar">
+          <div class="section-num-title">
+            <span class="section-code">02 / PIPELINE</span>
+            <h2 id="arch-heading" class="section-title">SYSTEM ARCHITECTURE</h2>
+          </div>
+          <span class="section-meta">CLICK ANY STATION TO INSPECT</span>
         </div>
 
-        <div class="how-split-layout fade-up">
-          <!-- Left: Full Interactive 3D Machine (embed: false, lazy mounted) -->
-          <div class="glass-card how-machine-card">
+        <div class="how-split-layout">
+          <div class="panel how-machine-panel">
             <div id="how-machine" class="how-machine-stage" aria-label="Full interactive 3D NeuroDrive pipeline explorer"></div>
           </div>
 
-          <!-- Right: 5-Station Pipeline Explanation List (synced with 3D machine clicks) -->
-          <div class="pipeline-steps" role="list" aria-label="NeuroDrive 5-stage pipeline explanation">
-            <article class="glass-card pipeline-step is-active" role="listitem" tabindex="0" data-station-step="map">
-              <div class="step-head">
-                <span class="arch-step">01</span>
-                <h3 class="arch-card-title">Map · Real OpenStreetMap Streets</h3>
-                <span class="step-badge">OSM streets</span>
+          <div class="pipeline-list" role="list" aria-label="Five-stage autonomous driving pipeline">
+            <article class="pipeline-item is-active" role="listitem" tabindex="0" data-station-step="map">
+              <div class="pipeline-item-head">
+                <h3 class="pipeline-item-title"><span class="pipeline-idx">01</span> Map</h3>
+                <span class="pipeline-output">OSM STREETS</span>
               </div>
-              <p class="arch-card-body">
-                Real OpenStreetMap geometries of the Melbourne CBD (Hoddle Grid) are projected into metric coordinates (<code>+x</code> east, <code>+y</code> south). Road widths, speed limits (<code>40 km/h</code>), one-way Little streets, building footprints, and tram tracks are indexed into a spatial hash grid.
+              <p class="pipeline-item-body">
+                Real OpenStreetMap street geometries of the Melbourne CBD (Hoddle Grid) projected to metric coordinates (<code>+x</code> east, <code>+y</code> south). Road widths, speed limits (<code>40 km/h</code>), one-way Little streets, and tram tracks are indexed into a spatial hash grid.
               </p>
             </article>
 
-            <article class="glass-card pipeline-step" role="listitem" tabindex="0" data-station-step="router">
-              <div class="step-head">
-                <span class="arch-step">02</span>
-                <h3 class="arch-card-title">Router · A* Graph Pathfinder</h3>
-                <span class="step-badge">15 m waypoints</span>
+            <article class="pipeline-item" role="listitem" tabindex="0" data-station-step="router">
+              <div class="pipeline-item-head">
+                <h3 class="pipeline-item-title"><span class="pipeline-idx">02</span> Router</h3>
+                <span class="pipeline-output">A* · 15 M WAYPOINTS</span>
               </div>
-              <p class="arch-card-body">
-                Road polylines split at intersections to form a directed graph honouring one-way streets. A* computes the optimal route—such as <code>Flinders St Station → Queen Victoria Market</code>—placing target waypoints every <code>15 m</code>.
+              <p class="pipeline-item-body">
+                Road polylines split at intersections into a directed graph honouring one-way rules. A* computes the shortest path—such as <code>Flinders St Station → Queen Victoria Market</code>—placing route waypoints every <code>15 m</code>.
               </p>
             </article>
 
-            <article class="glass-card pipeline-step" role="listitem" tabindex="0" data-station-step="sensors">
-              <div class="step-head">
-                <span class="arch-step">03</span>
-                <h3 class="arch-card-title">Sensors · 7-Ray Lidar &amp; Signals</h3>
-                <span class="step-badge">7 rays</span>
+            <article class="pipeline-item" role="listitem" tabindex="0" data-station-step="sensors">
+              <div class="pipeline-item-head">
+                <h3 class="pipeline-item-title"><span class="pipeline-idx">03</span> Sensors</h3>
+                <span class="pipeline-output">7 LIDAR RAYS</span>
               </div>
-              <p class="arch-card-body">
-                Each <code>4.5 m × 1.9 m</code> vehicle casts 7 forward rays against road edges, traffic cars, and trams, combining proximity readings with current speed, <code>sin/cos</code> bearing to the next waypoint, and the distance and phase of the next traffic signal.
+              <p class="pipeline-item-body">
+                Each <code>4.5 m × 1.9 m</code> vehicle casts 7 forward rays against road boundaries, traffic cars, and trams, combined with vehicle speed, <code>sin/cos</code> bearing to the next waypoint, and the distance and phase of the next signal.
               </p>
             </article>
 
-            <article class="glass-card pipeline-step" role="listitem" tabindex="0" data-station-step="brain">
-              <div class="step-head">
-                <span class="arch-step">04</span>
-                <h3 class="arch-card-title">Brain · 12–14–2 Neural Network</h3>
-                <span class="step-badge">12-14-2 net</span>
+            <article class="pipeline-item" role="listitem" tabindex="0" data-station-step="brain">
+              <div class="pipeline-item-head">
+                <h3 class="pipeline-item-title"><span class="pipeline-idx">04</span> Brain</h3>
+                <span class="pipeline-output">12-14-2 NETWORK</span>
               </div>
-              <p class="arch-card-body">
-                Twelve normalized telemetry inputs feed into a <code>[12, 14, 2]</code> feed-forward network with <code>tanh</code> activations. Two output neurons continuously control bicycle-model steering and acceleration/braking.
+              <p class="pipeline-item-body">
+                Twelve normalized telemetry inputs propagate through a <code>[12, 14, 2]</code> feed-forward network with <code>tanh</code> activations. Two outputs drive speed-limited bicycle steering and realistic acceleration/braking.
               </p>
             </article>
 
-            <article class="glass-card pipeline-step" role="listitem" tabindex="0" data-station-step="evolution">
-              <div class="step-head">
-                <span class="arch-step">05</span>
-                <h3 class="arch-card-title">Evolution · Genetic Selection</h3>
-                <span class="step-badge">next gen</span>
+            <article class="pipeline-item" role="listitem" tabindex="0" data-station-step="evolution">
+              <div class="pipeline-item-head">
+                <h3 class="pipeline-item-title"><span class="pipeline-idx">05</span> Evolution</h3>
+                <span class="pipeline-output">GENETIC SELECTION</span>
               </div>
-              <p class="arch-card-body">
-                Drivers are scored by metres progressed along the A* route plus arrival bonuses and traffic-rule penalties. The best drivers breed and mutate the next generation, auto-advancing scenarios at <code>≥70%</code> arrival success.
+              <p class="pipeline-item-body">
+                Fitness scores metres progressed along the A* route plus arrival bonuses and rule penalties. The best drivers clone and mutate into the next generation, auto-advancing scenarios once arrival success reaches <code>≥70%</code>.
               </p>
             </article>
           </div>
@@ -558,16 +480,11 @@
   <!-- Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div class="footer-brand">
-        <span class="footer-dot" aria-hidden="true"></span>
-        <span>Map data © OpenStreetMap contributors (ODbL)</span>
-      </div>
-      <p class="footer-credit">
+      <span>Map data © OpenStreetMap contributors (ODbL)</span>
+      <span>
         Built by Rukshan ·
-        <a href="https://github.com/Ruki-Diaz" target="_blank" rel="noopener noreferrer" class="footer-link">
-          github.com/Ruki-Diaz ↗
-        </a>
-      </p>
+        <a href="https://github.com/Ruki-Diaz" target="_blank" rel="noopener noreferrer" class="footer-link">github.com/Ruki-Diaz</a>
+      </span>
     </div>
   </footer>
 

@@ -222,7 +222,7 @@ function createMockNeuroDrive() {
 
       window.MapView.drawBase(ctx, cam);
 
-      // Draw Best Car in Mint
+      // Draw Best Car in Mint (no glow)
       ctx.save();
       ctx.translate(w * 0.5, h * 0.5);
       ctx.scale(cam.zoom, cam.zoom);
@@ -232,10 +232,8 @@ function createMockNeuroDrive() {
       ctx.translate(state.car.x, state.car.y);
       ctx.rotate((state.car.headingDeg * Math.PI) / 180);
       ctx.fillStyle = '#88F9C0';
-      ctx.shadowColor = '#88F9C0';
-      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.roundRect(-2.4, -1.1, 4.8, 2.2, 0.6);
+      ctx.roundRect(-2.25, -0.95, 4.5, 1.9, 0.4);
       ctx.fill();
       ctx.restore();
       ctx.restore();
@@ -433,40 +431,23 @@ function createSparklineRenderer(canvas) {
       return { x, y };
     });
 
-    const grad = ctx.createLinearGradient(0, padY, 0, height - padY);
-    grad.addColorStop(0, 'rgba(136, 249, 192, 0.36)');
-    grad.addColorStop(0.65, 'rgba(99, 49, 251, 0.16)');
-    grad.addColorStop(1, 'rgba(1, 1, 13, 0)');
-
-    ctx.beginPath();
-    ctx.moveTo(coords[0].x, height - padY);
-    coords.forEach((pt) => ctx.lineTo(pt.x, pt.y));
-    ctx.lineTo(coords[coords.length - 1].x, height - padY);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    const strokeGrad = ctx.createLinearGradient(padX, 0, width - padX, 0);
-    strokeGrad.addColorStop(0, indigo);
-    strokeGrad.addColorStop(1, mint);
-
+    // Restrained 1px white-grey line (no area fill, no glow)
     ctx.beginPath();
     coords.forEach((pt, idx) => {
       if (idx === 0) ctx.moveTo(pt.x, pt.y);
       else ctx.lineTo(pt.x, pt.y);
     });
-    ctx.strokeStyle = strokeGrad;
-    ctx.lineWidth = 2.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.46)';
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
     ctx.stroke();
 
+    // Single mint end-point dot
     const last = coords[coords.length - 1];
     ctx.beginPath();
-    ctx.arc(last.x, last.y, 3.2, 0, Math.PI * 2);
+    ctx.arc(last.x, last.y, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = mint;
-    ctx.shadowColor = mint;
-    ctx.shadowBlur = 9;
     ctx.fill();
 
     ctx.restore();
@@ -508,7 +489,7 @@ function initNeuroDriveUI() {
   const elHudSignalText = document.getElementById('hud-signal-text');
   const elHudDest = document.getElementById('hud-destination');
   const elHudRoutePct = document.getElementById('hud-route-pct');
-  const elHudRouteBar = document.getElementById('hud-route-bar');
+  const elHudRouteBar = document.getElementById('hud-route-fill') || document.getElementById('hud-route-bar');
 
   // Minimap Collapse Toggle (responsive 375px support)
   const elMinimapContainer = document.getElementById('minimap-container');
@@ -519,7 +500,6 @@ function initNeuroDriveUI() {
 
   // Control Panel Elements
   const btnStartPause = document.getElementById('btn-start-pause');
-  const btnStartPauseIcon = document.getElementById('btn-start-pause-icon');
   const btnStartPauseText = document.getElementById('btn-start-pause-text');
   const btnReset = document.getElementById('btn-reset');
   const btnSave = document.getElementById('btn-save');
@@ -630,7 +610,15 @@ function initNeuroDriveUI() {
     }
   }
 
-  // Render Scenario Picker Cards
+  function difficultyLevel(diffStr, idx) {
+    const s = String(diffStr || '').toLowerCase();
+    if (s.includes('easy') || s === '1') return 1;
+    if (s.includes('med') || s === '2') return 2;
+    if (s.includes('hard') || s.includes('expert') || s.includes('master') || s === '3') return 3;
+    return Math.min(3, Math.max(1, Math.ceil((idx + 1) / 2)));
+  }
+
+  // Render Compact Scenario Curriculum Table with 3-Bar Difficulty Indicator
   function renderScenarioPicker(scenarios, activeId) {
     if (!elScenarioGrid) return;
     const list = Array.isArray(scenarios) && scenarios.length ? scenarios : DEFAULT_SCENARIOS;
@@ -638,54 +626,56 @@ function initNeuroDriveUI() {
     if (renderedScenarioCount !== list.length) {
       elScenarioGrid.innerHTML = '';
       list.forEach((sc, idx) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'scenario-card';
-        card.setAttribute('role', 'radio');
-        card.dataset.scenarioId = String(sc.id);
-
-        const top = document.createElement('div');
-        top.className = 'scenario-top';
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'scenario-row';
+        row.setAttribute('role', 'radio');
+        row.dataset.scenarioId = String(sc.id);
 
         const num = document.createElement('span');
-        num.className = 'scenario-num';
+        num.className = 'sc-index';
         num.textContent = `0${idx + 1}`;
 
-        const chip = document.createElement('span');
-        chip.className = 'diff-chip';
-        chip.textContent = sc.difficulty || 'CBD';
-
-        top.appendChild(num);
-        top.appendChild(chip);
-
-        const name = document.createElement('div');
-        name.className = 'scenario-name';
+        const name = document.createElement('span');
+        name.className = 'sc-name';
         name.textContent = sc.name || `Scenario ${sc.id}`;
 
-        const desc = document.createElement('div');
-        desc.className = 'scenario-desc';
+        const desc = document.createElement('span');
+        desc.className = 'sc-desc';
         desc.textContent = sc.description || '';
 
-        card.appendChild(top);
-        card.appendChild(name);
-        card.appendChild(desc);
+        const level = difficultyLevel(sc.difficulty, idx);
+        const bars = document.createElement('span');
+        bars.className = 'diff-bars';
+        bars.title = sc.difficulty ? `Difficulty: ${sc.difficulty}` : `Level ${level}`;
+        bars.setAttribute('aria-label', bars.title);
+        for (let b = 1; b <= 3; b++) {
+          const bar = document.createElement('span');
+          bar.className = b <= level ? 'diff-bar is-filled' : 'diff-bar';
+          bars.appendChild(bar);
+        }
 
-        card.addEventListener('click', () => {
+        row.appendChild(num);
+        row.appendChild(name);
+        row.appendChild(desc);
+        row.appendChild(bars);
+
+        row.addEventListener('click', () => {
           api.actions?.setScenario?.(sc.id);
-          showToast(`Scenario: ${sc.name}`);
+          showToast(`SCENARIO 0${idx + 1} · ${sc.name.toUpperCase()}`);
           syncFromState(api.state);
         });
 
-        elScenarioGrid.appendChild(card);
+        elScenarioGrid.appendChild(row);
       });
       renderedScenarioCount = list.length;
     }
 
-    const cards = elScenarioGrid.querySelectorAll('.scenario-card');
-    cards.forEach((card) => {
-      const match = String(card.dataset.scenarioId) === String(activeId);
-      card.classList.toggle('is-active', match);
-      card.setAttribute('aria-checked', match ? 'true' : 'false');
+    const rows = elScenarioGrid.querySelectorAll('.scenario-row');
+    rows.forEach((row) => {
+      const match = String(row.dataset.scenarioId) === String(activeId);
+      row.classList.toggle('is-active', match);
+      row.setAttribute('aria-checked', match ? 'true' : 'false');
     });
   }
 
@@ -725,14 +715,14 @@ function initNeuroDriveUI() {
     const histMax = history.length ? Math.max(...history) : 0;
     allTimePeakM = Math.max(allTimePeakM, histMax, bestDistance);
     if (elPeakNote) {
-      elPeakNote.textContent = `All-time peak: ${Math.round(allTimePeakM).toLocaleString()} m`;
+      elPeakNote.textContent = `Peak: ${Math.round(allTimePeakM).toLocaleString()} m`;
     }
 
-    // 2. Success Rate Ring (circumference = 2 * pi * 21 ≈ 131.95)
+    // 2. Success Rate Thin 2px Arc (circumference = 2 * pi * 17 ≈ 106.81)
     const successPct = Math.round(success * 100);
     if (elSuccess) elSuccess.textContent = `${successPct}%`;
     if (elSuccessRing) {
-      const circum = 131.95;
+      const circum = 106.81;
       const offset = circum - (successPct / 100) * circum;
       elSuccessRing.style.strokeDashoffset = String(offset);
     }
@@ -782,10 +772,9 @@ function initNeuroDriveUI() {
     renderScenarioPicker(scenarios, scenarioId);
 
     // 6. Controls & Sliders
-    if (btnStartPause && btnStartPauseText && btnStartPauseIcon) {
+    if (btnStartPause && btnStartPauseText) {
       btnStartPause.setAttribute('aria-pressed', paused ? 'true' : 'false');
       btnStartPauseText.textContent = paused ? 'Start' : 'Pause';
-      btnStartPauseIcon.textContent = paused ? '▶' : '❚❚';
     }
     if (elSimIndicator) {
       elSimIndicator.classList.toggle('is-paused', paused);
@@ -859,7 +848,7 @@ function initNeuroDriveUI() {
       const isOverview = activeViewMode === 'overview';
       btnToggleView.classList.toggle('is-on', isOverview);
       btnToggleView.setAttribute('aria-pressed', isOverview ? 'true' : 'false');
-      elToggleViewLabel.textContent = `View: ${isOverview ? 'Overview' : 'Follow'}`;
+      elToggleViewLabel.textContent = isOverview ? 'All' : 'Follow';
     }
 
     showToast(`Camera: ${activeViewMode === 'overview' ? 'CBD Overview' : 'Follow Leader'}`);
